@@ -1,0 +1,362 @@
+/* Markdown Peek - preview styling.
+ *
+ * Two palettes, chosen by the .dark class the plugin sets from Notepad++'s own
+ * dark mode setting. Everything else is one set of rules. Edit freely; the
+ * plugin reloads this file with Reload Preview Assets.
+ */
+
+/* Declared so Chromium does not apply its own automatic darkening on top. The
+   plugin picks the palette from Notepad++'s dark mode setting, not the OS. */
+:root {
+  color-scheme: light;
+
+  --fg:            #1f2328;
+  --fg-muted:      #59636e;
+  --bg:            #ffffff;
+  --bg-inset:      #f6f8fa;
+  --border:        #d1d9e0;
+  --border-muted:  #d1d9e0b3;
+  --link:          #0969da;
+  --accent:        #0969da;
+
+  --add-bg:        #e6ffec;
+  --add-num:       #ccffd8;
+  --add-word:      #abf2bc;
+  --add-line:      #2da44e;
+  --del-bg:        #ffebe9;
+  --del-num:       #ffd7d5;
+  --del-word:      #ffc1c0;
+  --del-line:      #cf222e;
+  --hunk-bg:       #ddf4ff;
+  --hunk-fg:       #59636e;
+  --hunk-hover:    #b6e3ff;
+  --mod-line:      #bf8700;
+  --caret-bg:      #0969da14;
+
+  --mono: ui-monospace, "Cascadia Mono", "Segoe UI Mono", Consolas, monospace;
+  --sans: -apple-system, "Segoe UI", system-ui, sans-serif;
+}
+
+body.dark {
+  color-scheme: dark;
+
+  --fg:            #e6edf3;
+  --fg-muted:      #9198a1;
+  --bg:            #0d1117;
+  --bg-inset:      #151b23;
+  --border:        #3d444d;
+  --border-muted:  #3d444db3;
+  --link:          #4493f8;
+  --accent:        #4493f8;
+
+  --add-bg:        #2ea04326;
+  --add-num:       #2ea0434d;
+  --add-word:      #2ea04366;
+  --add-line:      #3fb950;
+  --del-bg:        #f8514926;
+  --del-num:       #f851494d;
+  --del-word:      #f8514966;
+  --del-line:      #f85149;
+  --hunk-bg:       #388bfd26;
+  --hunk-fg:       #9198a1;
+  --hunk-hover:    #388bfd40;
+  --mod-line:      #d29922;
+  --caret-bg:      #4493f81f;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow: hidden;
+}
+
+/* --------------------------------------------------------------- chrome -- */
+
+#status {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-inset);
+  font-size: 12px;
+  color: var(--fg-muted);
+  user-select: none;
+}
+
+#title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.dirty #title::after {
+  content: " •";
+  color: var(--mod-line);
+}
+
+#counts {
+  flex: 0 0 auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+body.diff #counts { color: var(--fg); }
+
+.notice {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-inset);
+  color: var(--fg-muted);
+}
+
+#scroller {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-behavior: auto;
+}
+
+#content {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 16px 24px 60vh;
+  word-wrap: break-word;
+}
+
+/* ------------------------------------------------------------- markdown -- */
+
+.markdown-body > *:first-child { margin-top: 0; }
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  margin: 24px 0 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.markdown-body h1 { font-size: 2em;    padding-bottom: .3em; border-bottom: 1px solid var(--border-muted); }
+.markdown-body h2 { font-size: 1.5em;  padding-bottom: .3em; border-bottom: 1px solid var(--border-muted); }
+.markdown-body h3 { font-size: 1.25em; }
+.markdown-body h4 { font-size: 1em; }
+.markdown-body h5 { font-size: .875em; }
+.markdown-body h6 { font-size: .85em; color: var(--fg-muted); }
+
+.markdown-body p,
+.markdown-body blockquote,
+.markdown-body ul,
+.markdown-body ol,
+.markdown-body dl,
+.markdown-body table,
+.markdown-body pre,
+.markdown-body details { margin: 0 0 16px; }
+
+.markdown-body a { color: var(--link); text-decoration: none; }
+.markdown-body a:hover { text-decoration: underline; }
+
+.markdown-body ul, .markdown-body ol { padding-left: 2em; }
+.markdown-body li + li { margin-top: .25em; }
+.markdown-body li > ul, .markdown-body li > ol { margin: .25em 0 0; }
+
+.markdown-body blockquote {
+  padding: 0 1em;
+  color: var(--fg-muted);
+  border-left: .25em solid var(--border);
+}
+
+.markdown-body hr {
+  height: 1px;
+  margin: 24px 0;
+  border: 0;
+  background: var(--border);
+}
+
+.markdown-body code {
+  padding: .2em .4em;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 85%;
+  background: var(--bg-inset);
+  border-radius: 6px;
+}
+
+.markdown-body pre {
+  padding: 16px;
+  overflow-x: auto;
+  font-size: 85%;
+  line-height: 1.45;
+  background: var(--bg-inset);
+  border-radius: 6px;
+}
+
+.markdown-body pre code {
+  padding: 0;
+  font-size: 100%;
+  background: transparent;
+  border-radius: 0;
+  white-space: pre;
+}
+
+.markdown-body table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+.markdown-body th, .markdown-body td {
+  padding: 6px 13px;
+  border: 1px solid var(--border);
+}
+
+.markdown-body th { font-weight: 600; background: var(--bg-inset); }
+.markdown-body tr:nth-child(2n) td { background: var(--bg-inset); }
+
+.markdown-body img { max-width: 100%; background: var(--bg); }
+
+.markdown-body input.mdp-task {
+  margin: 0 .35em 0 -1.4em;
+  vertical-align: middle;
+}
+.markdown-body li.mdp-task-item { list-style: none; }
+
+.markdown-body .mdp-blk { display: block; }
+
+/* ------------------------------------------------------- unified diff -- */
+
+/* The diff is a source view, so it takes the whole width of the panel rather
+   than the reading measure the preview uses. */
+body.diff #content {
+  max-width: none;
+  margin: 0;
+  padding: 0 0 60vh;
+}
+
+.diff-table {
+  display: table;
+  width: 100%;
+  table-layout: auto;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 20px;
+  tab-size: 4;
+}
+
+.diff-table td { vertical-align: top; padding: 0; }
+
+.dl .num {
+  width: 1%;
+  min-width: 42px;
+  padding: 0 10px;
+  text-align: right;
+  color: var(--fg-muted);
+  background: var(--bg-inset);
+  border-right: 1px solid var(--border-muted);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.dl .mark {
+  width: 1%;
+  padding: 0 6px;
+  text-align: center;
+  color: var(--fg-muted);
+  user-select: none;
+}
+
+.dl .code {
+  padding: 0 10px 0 4px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Added and removed lines tint the whole row, with a stronger tint on the
+   gutter, which is what makes a diff scannable at a glance. */
+.dl-add .code, .dl-add .mark { background: var(--add-bg); }
+.dl-add .num  { background: var(--add-num); border-right-color: var(--add-line); color: var(--fg); }
+.dl-add .mark { color: var(--add-line); font-weight: 600; }
+
+.dl-del .code, .dl-del .mark { background: var(--del-bg); }
+.dl-del .num  { background: var(--del-num); border-right-color: var(--del-line); color: var(--fg); }
+.dl-del .mark { color: var(--del-line); font-weight: 600; }
+
+.dl .code .wa { background: var(--add-word); border-radius: 2px; }
+.dl .code .wd { background: var(--del-word); border-radius: 2px; }
+
+/* The @@ bar over a collapsed region. */
+.dl-gap .num,
+.dl-gap .code {
+  background: var(--hunk-bg);
+  color: var(--hunk-fg);
+  border-top: 1px solid var(--border-muted);
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.dl-gap .gap-expand {
+  text-align: center;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.dl-gap .gap-expand:hover { background: var(--hunk-hover); color: var(--fg); }
+
+.dl-gap .gap-head {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.diff-empty {
+  margin: 0;
+  padding: 24px;
+  text-align: center;
+  color: var(--fg-muted);
+  font-size: 13px;
+}
+
+/* ---------------------------------------------------------- caret trace -- */
+
+/* Where the editor caret sits. Rendered as a left accent so it reads on both a
+   prose block and a diff row without fighting the diff tint. */
+.mdp-caret {
+  box-shadow: inset 3px 0 0 0 var(--accent);
+}
+
+.markdown-body .mdp-caret {
+  background-image: linear-gradient(var(--caret-bg), var(--caret-bg));
+}
+
+/* ------------------------------------------------------------ scrollbar -- */
+
+#scroller::-webkit-scrollbar { width: 12px; }
+#scroller::-webkit-scrollbar-track { background: transparent; }
+#scroller::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border: 3px solid var(--bg);
+  border-radius: 6px;
+}
+#scroller::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }

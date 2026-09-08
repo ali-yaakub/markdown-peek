@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Markdown Peek harness</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* Harness chrome only. The plugin never loads this. */
+  #harness {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 99;
+    display: flex; gap: 8px; align-items: center;
+    padding: 6px 12px; font: 12px var(--sans);
+    background: var(--bg-inset); border-top: 1px solid var(--border); color: var(--fg);
+  }
+  #harness button { font: inherit; padding: 3px 10px; cursor: pointer; }
+  #harness output { font-family: var(--mono); color: var(--fg-muted); margin-left: auto; }
+  body { padding-bottom: 40px; }
+</style>
+</head>
+<body>
+
+<header id="status">
+  <span id="title">Markdown Peek</span>
+  <span id="counts" hidden></span>
+</header>
+
+<div id="notice" class="notice" hidden></div>
+
+<div id="scroller">
+  <article id="content" class="markdown-body"></article>
+</div>
+
+<div id="harness">
+  <button id="btn-diff">Toggle diff</button>
+  <button id="btn-dark">Toggle dark</button>
+  <button id="btn-caret">Sync mode</button>
+  <button id="btn-scroll">Scroll to line 40</button>
+  <output id="log">ready</output>
+</div>
+
+<script src="mock.js"></script>
+<script src="../assets/vendor/markdown-it.min.js"></script>
+<script src="../assets/diff.js"></script>
+<script src="../assets/render.js"></script>
+<script src="../assets/diffview.js"></script>
+<script src="../assets/sync.js"></script>
+<script src="../assets/app.js"></script>
+<script src="fixtures.js"></script>
+
+</body>
+</html>

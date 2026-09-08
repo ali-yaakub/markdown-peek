@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'none';
+  script-src 'self';
+  style-src 'self' 'unsafe-inline';
+  img-src 'self' https://mdpeek.doc data:;
+  media-src 'self' https://mdpeek.doc;
+  font-src 'self';
+  connect-src 'none';
+  frame-src 'none';
+  object-src 'none';
+  base-uri 'none';
+  form-action 'none'">
+<title>Markdown Peek</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header id="status">
+  <span id="title">Markdown Peek</span>
+  <span id="counts" hidden></span>
+</header>
+
+<div id="notice" class="notice" hidden></div>
+
+<div id="scroller">
+  <article id="content" class="markdown-body"></article>
+</div>
+
+<script src="vendor/markdown-it.min.js"></script>
+<script src="diff.js"></script>
+<script src="render.js"></script>
+<script src="diffview.js"></script>
+<script src="sync.js"></script>
+<script src="app.js"></script>
+
+</body>
+</html>
