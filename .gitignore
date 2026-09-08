@@ -5,3 +5,6 @@ dist/
 *.exp
 *.pdb
 *.ilk
+
+# The WebView2 static loader is a build input, not a build output.
+!third_party/**/*.lib
