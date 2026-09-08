@@ -118,7 +118,7 @@ build script locates the toolchain with `vswhere`.
 .\build.ps1 -Install   # also copy into the plugins folder (needs elevation)
 ```
 
-Output is a single 207 KiB DLL. The CRT and the WebView2 loader are linked statically, so
+Output is a single 220 KiB DLL. The CRT and the WebView2 loader are linked statically, so
 the only dependencies are system libraries and the WebView2 runtime, which ships with
 Windows 11.
 
@@ -131,7 +131,7 @@ node test\diff.test.js
 58 assertions over the diff engine. The load-bearing ones are the reconstruction
 properties: dropping every added row must rebuild the baseline exactly, and dropping every
 deleted row must rebuild the current document exactly. A 4,000-line document with 45 edits
-diffs in about 12 ms.
+diffs in about 20 ms, style runs included.
 
 For the panel itself:
 
@@ -163,8 +163,9 @@ Scintilla created with `NPPM_CREATESCINTILLAHANDLE` and the Lexilla lexer from
 siblings on the live view, so they are the user's theme by construction rather than by
 imitation.
 
-Scripts embedded in a Markdown file cannot run: the page sets
-`script-src 'self'` and the diff view escapes everything it renders.
+Scripts embedded in a Markdown file cannot run. The page sets `script-src 'self'`, and the
+diff view never builds HTML at all: rows carry plain text and the view sets it through
+`textContent`, so markup in a document reaches the page as characters.
 
 ## Third-party components
 
