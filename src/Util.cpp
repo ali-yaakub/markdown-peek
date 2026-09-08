@@ -147,6 +147,9 @@ void Config::load()
     syncCaret   = ::GetPrivateProfileIntW(L"MarkdownPeek", L"syncCaret",   0, ini.c_str()) != 0;
     baselineGit = ::GetPrivateProfileIntW(L"MarkdownPeek", L"baselineGit", 0, ini.c_str()) != 0;
     maxKiB      = ::GetPrivateProfileIntW(L"MarkdownPeek", L"maxKiB",   4096, ini.c_str());
+    widthPercent = ::GetPrivateProfileIntW(L"MarkdownPeek", L"widthPercent", 50, ini.c_str());
+    if (widthPercent < 0 || widthPercent > 95)
+        widthPercent = 50;
 
     wchar_t buf[1024] = {};
     ::GetPrivateProfileStringW(L"MarkdownPeek", L"extensions",
@@ -162,6 +165,7 @@ void Config::save() const
     ::WritePrivateProfileStringW(L"MarkdownPeek", L"syncCaret",   syncCaret   ? L"1" : L"0", ini.c_str());
     ::WritePrivateProfileStringW(L"MarkdownPeek", L"baselineGit", baselineGit ? L"1" : L"0", ini.c_str());
     ::WritePrivateProfileStringW(L"MarkdownPeek", L"maxKiB",      std::to_wstring(maxKiB).c_str(), ini.c_str());
+    ::WritePrivateProfileStringW(L"MarkdownPeek", L"widthPercent", std::to_wstring(widthPercent).c_str(), ini.c_str());
     ::WritePrivateProfileStringW(L"MarkdownPeek", L"extensions",  extensions.c_str(), ini.c_str());
 }
 

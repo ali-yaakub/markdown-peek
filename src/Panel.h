@@ -12,12 +12,17 @@ namespace Panel
     void hide();
     void toggle();
 
+    // remember == false for an automatic change, so switching tabs does not
+    // overwrite what the user decided for the tab being left.
+    void setVisible(bool on, bool remember);
+
     // Notepad++ needs two different identifiers: the funcItem index to restore the
     // panel on the next launch, and the allocated command id to tick the menu item.
     void setDockIds(int funcIndex, int cmdId);
 
     // Editor events worth reacting to.
-    void onBufferActivated();
+    void onBufferActivated(uintptr_t bufferId);
+    void forgetBuffer(uintptr_t bufferId);
     void onTextModified();
     void onViewportChanged();
     void onZoomChanged();

@@ -43,6 +43,7 @@ struct Config
     bool syncCaret  = false;  // false: track first visible line; true: track caret
     bool baselineGit = false; // false: last saved on disk; true: git HEAD
     int  maxKiB     = 4096;   // skip auto-render above this document size
+    int  widthPercent = 50;   // share of the editor area the dock takes; 0 leaves it alone
     std::wstring extensions = L"md;markdown;mdown;mkd;mkdn;mdwn;mdtxt;mdtext;rmd;qmd";
 
     void load();

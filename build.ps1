@@ -55,7 +55,7 @@ New-Item -ItemType Directory -Force -Path $dist | Out-Null
 
 # ----------------------------------------------------------------- build ----
 
-$sources = @('Plugin.cpp', 'Util.cpp', 'Panel.cpp', 'Theme.cpp') | ForEach-Object { Join-Path $src $_ }
+$sources = @('Plugin.cpp', 'Util.cpp', 'Panel.cpp', 'Theme.cpp', 'Dock.cpp') | ForEach-Object { Join-Path $src $_ }
 
 $cl = @(
     '/nologo', '/c', '/EHsc', '/W4', '/O2', '/MT', '/GS', '/std:c++17', '/permissive-',
@@ -73,7 +73,7 @@ $link = @(
     "`"$obj\*.obj`"",
     "`"$root\third_party\webview2\lib\x64\WebView2LoaderStatic.lib`"",
     'kernel32.lib', 'user32.lib', 'shell32.lib', 'ole32.lib', 'oleaut32.lib',
-    'advapi32.lib', 'version.lib', 'shlwapi.lib'
+    'advapi32.lib', 'version.lib', 'shlwapi.lib', 'comctl32.lib', 'gdi32.lib'
 )
 
 $batch = @"

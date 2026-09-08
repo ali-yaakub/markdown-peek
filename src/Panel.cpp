@@ -6,11 +6,13 @@
 // the user's config folder and can be edited without rebuilding this DLL.
 
 #include "Panel.h"
+#include "Dock.h"
 #include "Theme.h"
 #include "Scintilla.h"
 
 #include <wrl/client.h>
 #include <functional>
+#include <map>
 #include <shellapi.h>
 
 #include "WebView2.h"
@@ -118,6 +120,7 @@ const wchar_t* kAppOrigin = L"https://mdpeek.local/";
 
 constexpr UINT_PTR kTimerDoc    = 1;
 constexpr UINT_PTR kTimerScroll = 2;
+constexpr UINT_PTR kTimerDock   = 3;
 constexpr UINT     kDocDelayMs    = 180;
 constexpr UINT     kScrollDelayMs = 25;
 
@@ -126,6 +129,17 @@ bool  s_registered = false;   // registered with the docking manager
 bool  s_visible = false;
 int   s_dockIndex = 0;
 int   s_dockCmdId = 0;
+
+// Visibility is remembered per buffer, so the panel can be closed on one tab and
+// left open on another. Entries are dropped when their file closes, because
+// Notepad++ reuses buffer ids.
+std::map<uintptr_t, bool> s_perBuffer;
+
+uintptr_t currentBufferId()
+{
+    return static_cast<uintptr_t>(
+        ::SendMessage(g_npp._nppHandle, NPPM_GETCURRENTBUFFERID, 0, 0));
+}
 
 ComPtr<ICoreWebView2Controller> s_controller;
 ComPtr<ICoreWebView2>           s_web;
@@ -509,6 +523,13 @@ LRESULT CALLBACK panelProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
             pushViewport();
             return 0;
         }
+        if (wp == kTimerDock)
+        {
+            ::KillTimer(hwnd, kTimerDock);
+            if (s_visible)
+                Dock::applyWidth(s_hwnd, g_cfg.widthPercent);
+            return 0;
+        }
         break;
 
     case WM_NOTIFY:
@@ -517,9 +538,15 @@ LRESULT CALLBACK panelProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         if (nmhdr && nmhdr->code == DMN_CLOSE)
         {
             s_visible = false;
+            s_perBuffer[currentBufferId()] = false;
             ::SendMessage(g_npp._nppHandle, NPPM_SETMENUITEMCHECK,
                           static_cast<WPARAM>(s_dockCmdId), FALSE);
             return TRUE;
+        }
+        if (nmhdr && (nmhdr->code == DMN_DOCK || nmhdr->code == DMN_FLOAT))
+        {
+            // Docked to a different edge, or undocked. Re-apply on the next tick.
+            ::SetTimer(hwnd, kTimerDock, 80, nullptr);
         }
         break;
     }
@@ -586,6 +613,7 @@ void Panel::init()
 
 void Panel::shutdown()
 {
+    Dock::stopWatching();
     Theme::shutdown();
 
     if (s_controller)
@@ -614,43 +642,55 @@ void Panel::setDockIds(int funcIndex, int cmdId)
     s_dockCmdId = cmdId;
 }
 
-void Panel::show()
+void Panel::setVisible(bool on, bool remember)
 {
-    ensureCreated();
-    if (!s_hwnd)
-        return;
+    if (on)
+    {
+        ensureCreated();
+        if (!s_hwnd)
+            return;
 
-    ::SendMessage(g_npp._nppHandle, NPPM_DMMSHOW, 0, reinterpret_cast<LPARAM>(s_hwnd));
-    ::SendMessage(g_npp._nppHandle, NPPM_SETMENUITEMCHECK, static_cast<WPARAM>(s_dockCmdId), TRUE);
-    s_visible = true;
+        ::SendMessage(g_npp._nppHandle, NPPM_DMMSHOW, 0, reinterpret_cast<LPARAM>(s_hwnd));
+        ::SendMessage(g_npp._nppHandle, NPPM_SETMENUITEMCHECK,
+                      static_cast<WPARAM>(s_dockCmdId), TRUE);
+        s_visible = true;
 
-    if (s_webReady)
-        pushEverything();
-}
+        // Hold the panel at its share of the window, now and on every resize.
+        Dock::startWatching(s_hwnd, kTimerDock);
+        ::SetTimer(s_hwnd, kTimerDock, 60, nullptr);
 
-void Panel::hide()
-{
-    if (!s_hwnd)
-        return;
-    ::SendMessage(g_npp._nppHandle, NPPM_DMMHIDE, 0, reinterpret_cast<LPARAM>(s_hwnd));
-    ::SendMessage(g_npp._nppHandle, NPPM_SETMENUITEMCHECK, static_cast<WPARAM>(s_dockCmdId), FALSE);
-    s_visible = false;
-}
-
-void Panel::toggle()
-{
-    if (s_visible)
-        hide();
+        if (s_webReady)
+            pushEverything();
+    }
     else
-        show();
+    {
+        if (!s_hwnd)
+            return;
+        ::SendMessage(g_npp._nppHandle, NPPM_DMMHIDE, 0, reinterpret_cast<LPARAM>(s_hwnd));
+        ::SendMessage(g_npp._nppHandle, NPPM_SETMENUITEMCHECK,
+                      static_cast<WPARAM>(s_dockCmdId), FALSE);
+        s_visible = false;
+    }
+
+    if (remember)
+        s_perBuffer[currentBufferId()] = on;
 }
 
-void Panel::onBufferActivated()
+void Panel::show()   { setVisible(true, true); }
+void Panel::hide()   { setVisible(false, true); }
+void Panel::toggle() { setVisible(!s_visible, true); }
+
+void Panel::onBufferActivated(uintptr_t bufferId)
 {
     const std::wstring path = currentFilePath();
 
-    if (!s_visible && g_cfg.autoOpen && g_cfg.matchesExtension(path))
-        show();
+    auto it = s_perBuffer.find(bufferId);
+    const bool wanted = (it != s_perBuffer.end())
+        ? it->second                                        // this tab's own choice
+        : (g_cfg.autoOpen && g_cfg.matchesExtension(path));  // otherwise the default
+
+    if (wanted != s_visible)
+        setVisible(wanted, false);
 
     if (!s_visible || !s_webReady)
         return;
@@ -658,6 +698,11 @@ void Panel::onBufferActivated()
     computeBaseline();
     pushBaseline();
     pushDocument();
+}
+
+void Panel::forgetBuffer(uintptr_t bufferId)
+{
+    s_perBuffer.erase(bufferId);
 }
 
 void Panel::onTextModified()

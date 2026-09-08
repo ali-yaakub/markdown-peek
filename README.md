@@ -21,6 +21,13 @@ Built and tested against Notepad++ 8.8.7 and 8.9.7, x64, on Windows 11.
   tints are the plugin's own, and they are translucent so they sit correctly on any
   background.
 - **Zoom follows the editor.** Ctrl+scroll in Notepad++ and both panes resize together.
+- **Half the window, and it stays half.** The panel takes 50% of the editor area and holds
+  that share when the window is resized, rather than the fixed pixel width Notepad++ would
+  otherwise keep. Set `widthPercent` to change the share, or to `0` to leave the width
+  alone entirely.
+- **Shown or hidden per tab.** Closing the panel is remembered against that buffer, so a
+  peek can be closed on one file and left open on another. Buffers not yet decided follow
+  the auto-open rule. The record lasts for the session and is dropped when a file closes.
 - **Opens itself for Markdown.** Activating a `.md` buffer opens the panel.
 
 The preview is styled separately, after Claude Code: warm ground, coral accent, a reading
@@ -56,7 +63,7 @@ Two halves, and only the second is the plugin's.
 
 | Command | Shortcut | Effect |
 | --- | --- | --- |
-| Markdown Preview | `Ctrl+Alt+M` | Show or hide the panel |
+| Markdown Preview | `Ctrl+Alt+M`, or the toolbar button | Show or hide the panel for this tab |
 | Inline Diff Mode | `Ctrl+Alt+D` | Switch between preview and unified diff |
 | Diff Against Git HEAD | | Baseline is `git show HEAD:<file>` instead of the file on disk |
 | Sync to Caret Line | | Track the caret rather than the first visible line |
@@ -92,6 +99,8 @@ overwritten by an upgrade, so hand edits survive.
 | `diff.js` | Myers line diff, word diff, style-run expansion, hunk grouping |
 | `diffview.js` | The unified diff table |
 | `theme.js` | Turns Notepad++'s style table into CSS rules |
+|  |  |
+| The dock width and the toolbar icon are native, in `src\Dock.cpp` | |
 | `sync.js` | Source line to pixel offset, and the scroll placement |
 | `app.js` | The bridge, and which of the two views to show |
 
@@ -104,6 +113,7 @@ diffMode=0
 syncCaret=0
 baselineGit=0
 maxKiB=4096
+widthPercent=50
 extensions=md;markdown;mdown;mkd;mkdn;mdwn;mdtxt;mdtext;rmd;qmd
 ```
 
@@ -118,7 +128,7 @@ build script locates the toolchain with `vswhere`.
 .\build.ps1 -Install   # also copy into the plugins folder (needs elevation)
 ```
 
-Output is a single 220 KiB DLL. The CRT and the WebView2 loader are linked statically, so
+Output is a single 228 KiB DLL. The CRT and the WebView2 loader are linked statically, so
 the only dependencies are system libraries and the WebView2 runtime, which ships with
 Windows 11.
 
@@ -162,6 +172,13 @@ Scintilla created with `NPPM_CREATESCINTILLAHANDLE` and the Lexilla lexer from
 `NPPM_CREATELEXER`. Colours for those indices come from `SCI_STYLEGETFORE` and its
 siblings on the live view, so they are the user's theme by construction rather than by
 imitation.
+
+Notepad++ offers plugins no way to set the width of their own docked panel, so the panel
+drives the same message its splitter sends when dragged, `DMM_MOVE_SPLITTER`, addressed to
+the `dockingManager` window and re-applied whenever the main window is resized. Every step
+of that fails quietly: if the layout is not what is expected, the panel simply keeps
+whatever width Notepad++ gave it. The toolbar icon is drawn with GDI at startup rather than
+compiled in, which is why the build needs no resource compiler.
 
 Scripts embedded in a Markdown file cannot run. The page sets `script-src 'self'`, and the
 diff view never builds HTML at all: rows carry plain text and the view sets it through

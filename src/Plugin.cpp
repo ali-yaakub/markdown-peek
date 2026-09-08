@@ -1,6 +1,7 @@
 // Markdown Peek - Notepad++ plugin entry points, menu and notification routing.
 
 #include "Common.h"
+#include "Dock.h"
 #include "Panel.h"
 #include "Scintilla.h"
 
@@ -212,6 +213,19 @@ extern "C" __declspec(dllexport) void beNotified(SCNotification* notify)
 
     switch (code)
     {
+    case NPPN_TBMODIFICATION:
+    {
+        // Icons are drawn at runtime; see Dock.cpp. Notepad++ takes ownership.
+        static toolbarIconsWithDarkMode icons = {};
+        icons.hToolbarBmp = Dock::makeBitmap();
+        icons.hToolbarIcon = Dock::makeIcon(false);
+        icons.hToolbarIconDarkMode = Dock::makeIcon(true);
+        ::SendMessage(g_npp._nppHandle, NPPM_ADDTOOLBARICON_FORDARKMODE,
+                      static_cast<WPARAM>(g_funcs[IDX_TOGGLE]._cmdID),
+                      reinterpret_cast<LPARAM>(&icons));
+        break;
+    }
+
     case NPPN_READY:
     {
         g_cfg.load();
@@ -223,7 +237,7 @@ extern "C" __declspec(dllexport) void beNotified(SCNotification* notify)
         // Notepad++ restores a docked panel itself when it was open at shutdown, so
         // only the auto-open rule needs applying here.
         if (g_cfg.autoOpen && g_cfg.matchesExtension(currentFilePath()))
-            Panel::show();
+            Panel::setVisible(true, false);
         break;
     }
 
@@ -235,7 +249,13 @@ extern "C" __declspec(dllexport) void beNotified(SCNotification* notify)
 
     case NPPN_BUFFERACTIVATED:
         if (g_ready)
-            Panel::onBufferActivated();
+            Panel::onBufferActivated(static_cast<uintptr_t>(notify->nmhdr.idFrom));
+        break;
+
+    case NPPN_FILECLOSED:
+        // Buffer ids are reused, so a stale preference would attach to the wrong
+        // file the next time one is opened.
+        Panel::forgetBuffer(static_cast<uintptr_t>(notify->nmhdr.idFrom));
         break;
 
     case NPPN_FILESAVED:
