@@ -99,10 +99,10 @@ overwritten by an upgrade, so hand edits survive.
 | `diff.js` | Myers line diff, word diff, style-run expansion, hunk grouping |
 | `diffview.js` | The unified diff table |
 | `theme.js` | Turns Notepad++'s style table into CSS rules |
-|  |  |
-| The dock width and the toolbar icon are native, in `src\Dock.cpp` | |
 | `sync.js` | Source line to pixel offset, and the scroll placement |
 | `app.js` | The bridge, and which of the two views to show |
+
+The dock width and the toolbar icon are native rather than scripted, in `src\Dock.cpp`.
 
 Settings live in `%APPDATA%\Notepad++\plugins\config\MarkdownPeek\MarkdownPeek.ini`:
 
