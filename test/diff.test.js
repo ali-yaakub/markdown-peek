@@ -29,22 +29,20 @@ function eq(name, got, want) {
   check(name, g === w, 'got  ' + g + '\n      want ' + w);
 }
 
-// Strips the HTML the view needs back to plain text, so a row can be compared
-// with the source line it came from.
-function plain(html) {
-  return html
-    .replace(/<[^>]+>/g, '')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&');
+// Rows carry plain text now; the view is what turns them into markup.
+function sides(base, cur, opts) {
+  const d = D.unified(base, cur, Object.assign({ context: 3 }, opts || {}));
+  const oldSide = d.rows.filter(r => r.kind !== 'add').map(r => r.text);
+  const newSide = d.rows.filter(r => r.kind !== 'del').map(r => r.text);
+  return { d, oldSide, newSide };
 }
 
-// The two reconstruction properties every unified diff must satisfy.
-function sides(base, cur) {
-  const d = D.unified(base, cur, { context: 3 });
-  const oldSide = d.rows.filter(r => r.kind !== 'add').map(r => plain(r.html));
-  const newSide = d.rows.filter(r => r.kind !== 'del').map(r => plain(r.html));
-  return { d, oldSide, newSide };
+// The characters a mark covers, for readable assertions.
+function marked(row) {
+  if (!row.mark) return '';
+  let out = '';
+  for (let i = 0; i < row.text.length; i++) if (row.mark[i]) out += row.text[i];
+  return out;
 }
 
 /* ------------------------------------------------------------ cases ------ */
@@ -68,7 +66,7 @@ function sides(base, cur) {
   const row = d.rows.find(r => r.kind === 'add');
   eq('insert: no old line number', row.oldLine, null);
   eq('insert: new line number', row.newLine, 1);
-  eq('insert: text', plain(row.html), 'NEW');
+  eq('insert: text', row.text, 'NEW');
 }
 
 // 3. A pure deletion keeps the removed line, numbered on the old side only.
@@ -79,7 +77,7 @@ function sides(base, cur) {
   const row = d.rows.find(r => r.kind === 'del');
   eq('delete: old line number', row.oldLine, 1);
   eq('delete: no new line number', row.newLine, null);
-  eq('delete: text', plain(row.html), 'GONE');
+  eq('delete: text', row.text, 'GONE');
 }
 
 // 4. An edited line becomes a del/add pair carrying word marks.
@@ -87,9 +85,9 @@ function sides(base, cur) {
   const d = D.unified('The quick brown fox\n', 'The quick red fox\n');
   const del = d.rows.find(r => r.kind === 'del');
   const add = d.rows.find(r => r.kind === 'add');
-  check('edit: removed word marked', del.html.indexOf('<span class="wd">brown</span>') >= 0, del.html);
-  check('edit: added word marked', add.html.indexOf('<span class="wa">red</span>') >= 0, add.html);
-  check('edit: unchanged words unmarked', del.html.indexOf('The quick ') === 0, del.html);
+  eq('edit: removed word marked', marked(del), 'brown');
+  eq('edit: added word marked', marked(add), 'red');
+  eq('edit: mark spans the whole line', del.mark.length, del.text.length);
   eq('edit: deletion precedes addition',
      d.rows.filter(r => r.kind !== 'ctx').map(r => r.kind), ['del', 'add']);
 }
@@ -97,24 +95,48 @@ function sides(base, cur) {
 // 5. Wholly different lines are not word-diffed into confetti.
 {
   const d = D.unified('alpha beta gamma\n', 'wholly unrelated sentence\n');
-  const del = d.rows.find(r => r.kind === 'del');
-  const add = d.rows.find(r => r.kind === 'add');
-  check('dissimilar: no marks on the removal', del.html.indexOf('<span') === -1, del.html);
-  check('dissimilar: no marks on the addition', add.html.indexOf('<span') === -1, add.html);
+  eq('dissimilar: no marks on the removal', d.rows.find(r => r.kind === 'del').mark, null);
+  eq('dissimilar: no marks on the addition', d.rows.find(r => r.kind === 'add').mark, null);
 }
 
-// 6. HTML in the source is escaped, never emitted live.
+// 6. Rows carry text, never markup. The view sets it through textContent, so a
+//    document containing HTML cannot reach the page as live markup.
 {
   const d = D.unified('<script>alert(1)</script>\n', '<script>alert(2)</script>\n');
-  const joined = d.rows.map(r => r.html).join('');
-  check('escape: no raw script tag', joined.indexOf('<script') === -1, joined);
-  check('escape: entity present', joined.indexOf('&lt;script&gt;') >= 0, joined);
-  check('escape: only diff spans survive as markup',
-        (joined.match(/<(?!\/?span)/g) || []).length === 0, joined);
+  const del = d.rows.find(r => r.kind === 'del');
+  eq('text: passed through verbatim', del.text, '<script>alert(1)</script>');
+  check('text: no entity encoding applied', del.text.indexOf('&lt;') === -1, del.text);
+  check('rows: carry no html property', d.rows.every(r => r.html === undefined), 'html present');
 }
 
-// 7. Reconstruction. This is the property that matters most: the rows must be
-//    able to rebuild both sides exactly.
+// 7. Lexer style runs are expanded to one index per character.
+{
+  const d = D.unified('a\n# Heading\nb\n', 'a\n# Heading here\nb\n', {
+    context: 3,
+    curRuns: '0:1|6:15|0:1|'
+  });
+  const add = d.rows.find(r => r.kind === 'add');
+  eq('runs: one style per character', add.styles.length, add.text.length);
+  eq('runs: heading style applied', Array.from(add.styles).every(v => v === 6), true);
+
+  const ctx = d.rows.find(r => r.kind === 'ctx');
+  eq('runs: default where none supplied', Array.from(ctx.styles).every(v => v === 0), true);
+}
+
+// 8. A short or malformed run string must not overrun or leave the array ragged.
+{
+  const d = D.unified('x\n', 'abcdef\n', { context: 3, curRuns: '3:2|' });
+  const add = d.rows.find(r => r.kind === 'add');
+  eq('runs: length still matches the text', add.styles.length, 6);
+  eq('runs: covered head', Array.from(add.styles.slice(0, 2)).join(''), '33');
+  eq('runs: uncovered tail falls back', Array.from(add.styles.slice(2)).join(''), '0000');
+
+  const junk = D.unified('x\n', 'abc\n', { context: 3, curRuns: 'nonsense|:|9:|' });
+  eq('runs: junk is survivable', junk.rows.find(r => r.kind === 'add').styles.length, 3);
+}
+
+// 9. Reconstruction. The property that matters most: the rows must rebuild both
+//    sides of the comparison exactly.
 {
   const cases = [
     ['a\nb\nc\n', 'a\nb\nc\n'],
@@ -132,7 +154,7 @@ function sides(base, cur) {
   });
 }
 
-// 8. Line numbers ascend without gaps on each side.
+// 10. Line numbers ascend without gaps on each side.
 {
   const { d } = sides('a\nb\nc\nd\ne\n', 'a\nX\nc\nY\nZ\ne\n');
   let lastOld = -1;
@@ -145,7 +167,7 @@ function sides(base, cur) {
   eq('numbering: contiguous on both sides', ok, true);
 }
 
-// 9. Hunks cover every change, and context is bounded.
+// 11. Hunks cover every change, and context stays bounded.
 {
   const base = [];
   for (let i = 0; i < 200; i++) base.push('line ' + i);
@@ -166,15 +188,14 @@ function sides(base, cur) {
   check('hunks: header shape', /^@@ -\d+,\d+ \+\d+,\d+ @@$/.test(d.hunks[0].header), d.hunks[0].header);
 }
 
-// 10. The hunk header names the Markdown section it falls in.
+// 12. The hunk header names the Markdown section it falls in.
 {
-  const base = '# Report\n\n## Expenses\n\nflat\n';
-  const cur  = '# Report\n\n## Expenses\n\nlower\n';
-  const d = D.unified(base, cur, { context: 0 });
+  const d = D.unified('# Report\n\n## Expenses\n\nflat\n',
+                      '# Report\n\n## Expenses\n\nlower\n', { context: 0 });
   eq('section: nearest heading above the change', d.hunks[0].section, 'Expenses');
 }
 
-// 11. A realistic document, and a check that it stays fast.
+// 13. A realistic document, and a check that it stays fast.
 {
   const base = [];
   for (let i = 0; i < 4000; i++) base.push('Line ' + i + ' of the baseline document.');
@@ -183,20 +204,23 @@ function sides(base, cur) {
   cur.splice(500, 0, 'An inserted paragraph.');
   cur.splice(2500, 3);
 
+  // A run string for every line, so the expansion cost is measured too.
+  const runs = cur.map(l => '0:' + l.length).join('|');
+
   const t0 = Date.now();
-  const d = D.unified(base.join('\n'), cur.join('\n'), { context: 3 });
+  const d = D.unified(base.join('\n'), cur.join('\n'), { context: 3, curRuns: runs });
   const ms = Date.now() - t0;
 
   check('large: completes under 2s', ms < 2000, ms + ' ms');
-  const oldSide = d.rows.filter(r => r.kind !== 'add').map(r => plain(r.html));
-  const newSide = d.rows.filter(r => r.kind !== 'del').map(r => plain(r.html));
-  eq('large: rebuilds the old side', oldSide.join('\n'), base.join('\n'));
-  eq('large: rebuilds the new side', newSide.join('\n'), cur.join('\n'));
+  eq('large: rebuilds the old side',
+     d.rows.filter(r => r.kind !== 'add').map(r => r.text).join('\n'), base.join('\n'));
+  eq('large: rebuilds the new side',
+     d.rows.filter(r => r.kind !== 'del').map(r => r.text).join('\n'), cur.join('\n'));
   console.log('      large document: ' + ms + ' ms, ' + d.hunks.length + ' hunks, +' +
               d.added + ' −' + d.removed);
 }
 
-// 12. Empty and single-line edge cases must not throw.
+// 14. Empty and single-line edge cases must not throw.
 {
   check('edge: both empty', (function () { D.unified('', ''); return true; })());
   check('edge: newline only', (function () { D.unified('\n', ''); return true; })());

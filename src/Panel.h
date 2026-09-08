@@ -20,8 +20,10 @@ namespace Panel
     void onBufferActivated();
     void onTextModified();
     void onViewportChanged();
+    void onZoomChanged();
     void onFileSaved();
     void onDarkModeChanged();
+    void onStylesUpdated();
 
     // Settings changed from the menu.
     void pushMode();

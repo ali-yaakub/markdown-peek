@@ -6,6 +6,7 @@
 // the user's config folder and can be edited without rebuilding this DLL.
 
 #include "Panel.h"
+#include "Theme.h"
 #include "Scintilla.h"
 
 #include <wrl/client.h>
@@ -146,11 +147,26 @@ void postJson(const std::string& json)
     s_web->PostWebMessageAsJson(utf8ToWide(json).c_str());
 }
 
+int editorZoom()
+{
+    HWND sci = currentScintilla();
+    return sci ? static_cast<int>(::SendMessage(sci, SCI_GETZOOM, 0, 0)) : 0;
+}
+
+void pushZoom()
+{
+    postJson("{\"t\":\"zoom\",\"zoom\":" + std::to_string(editorZoom()) + "}");
+}
+
 void pushTheme()
 {
     const bool dark = ::SendMessage(g_npp._nppHandle, NPPM_ISDARKMODEENABLED, 0, 0) != 0;
     std::string j = "{\"t\":\"theme\",\"dark\":";
     j += dark ? "true" : "false";
+    j += ",\"zoom\":";
+    j += std::to_string(editorZoom());
+    j += ",\"editor\":";
+    j += Theme::paletteJson(currentScintilla());
     j += "}";
     postJson(j);
 }
@@ -233,6 +249,9 @@ void pushBaseline()
     j += g_cfg.baselineGit ? "git" : "saved";
     j += "\",\"text\":\"";
     j += jsonEscape(s_lastBaseline);
+    j += "\",\"runs\":\"";
+    if (s_baselineValid)
+        j += Theme::runsForText(s_lastBaseline, L"markdown");
     j += "\"}";
     postJson(j);
 }
@@ -268,6 +287,9 @@ void pushDocument()
     j += ",\"text\":\"";
     if (!tooBig)
         j += jsonEscape(editorTextUtf8(sci));
+    j += "\",\"runs\":\"";
+    if (!tooBig)
+        j += Theme::runsForDocument(sci);
     j += "\"}";
 
     postJson(j);
@@ -364,7 +386,7 @@ void createWebView()
                     {
                         settings->put_IsStatusBarEnabled(FALSE);
                         settings->put_AreDefaultContextMenusEnabled(TRUE);
-                        settings->put_IsZoomControlEnabled(TRUE);
+                        settings->put_IsZoomControlEnabled(FALSE);
                         settings->put_AreDevToolsEnabled(TRUE);
                     }
 
@@ -564,6 +586,8 @@ void Panel::init()
 
 void Panel::shutdown()
 {
+    Theme::shutdown();
+
     if (s_controller)
     {
         s_controller->Close();
@@ -643,6 +667,13 @@ void Panel::onTextModified()
     ::SetTimer(s_hwnd, kTimerDoc, kDocDelayMs, nullptr);
 }
 
+void Panel::onZoomChanged()
+{
+    if (!s_visible)
+        return;
+    ::pushZoom();
+}
+
 void Panel::onViewportChanged()
 {
     if (!s_visible || !s_hwnd)
@@ -662,6 +693,17 @@ void Panel::onFileSaved()
 void Panel::onDarkModeChanged()
 {
     pushTheme();
+    pushDocument();
+}
+
+// The user changed styles in the Style Configurator, so every colour the panel
+// is holding is now stale.
+void Panel::onStylesUpdated()
+{
+    pushTheme();
+    computeBaseline();
+    pushBaseline();
+    pushDocument();
 }
 
 void Panel::pushMode()

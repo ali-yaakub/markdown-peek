@@ -248,6 +248,11 @@ extern "C" __declspec(dllexport) void beNotified(SCNotification* notify)
             Panel::onDarkModeChanged();
         break;
 
+    case NPPN_WORDSTYLESUPDATED:
+        if (g_ready)
+            Panel::onStylesUpdated();
+        break;
+
     case SCN_MODIFIED:
         // Only the two Scintilla views matter; ignore anything a plugin panel emits.
         if (g_ready
@@ -255,6 +260,14 @@ extern "C" __declspec(dllexport) void beNotified(SCNotification* notify)
             && (notify->modificationType & (SC_MOD_INSERTTEXT | SC_MOD_DELETETEXT)))
         {
             Panel::onTextModified();
+        }
+        break;
+
+    case SCN_ZOOM:
+        if (g_ready
+            && (from == g_npp._scintillaMainHandle || from == g_npp._scintillaSecondHandle))
+        {
+            Panel::onZoomChanged();
         }
         break;
 

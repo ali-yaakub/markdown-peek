@@ -5,33 +5,23 @@
  * plugin reloads this file with Reload Preview Assets.
  */
 
-/* Declared so Chromium does not apply its own automatic darkening on top. The
-   plugin picks the palette from Notepad++'s dark mode setting, not the OS. */
+/* Two palettes live here and they are deliberately different.
+   The preview is the reading surface, styled after Claude Code: warm ground,
+   coral accent, generous measure. The diff is the editor's own surface, and
+   every colour it uses arrives at runtime from Notepad++'s Scintilla style
+   table via theme.js, under the --ed-* names. Nothing about the diff's
+   colouring is written down in this file.
+
+   color-scheme is declared so Chromium does not darken the page itself. */
 :root {
   color-scheme: light;
 
-  --fg:            #1f2328;
-  --fg-muted:      #59636e;
-  --bg:            #ffffff;
-  --bg-inset:      #f6f8fa;
-  --border:        #d1d9e0;
-  --border-muted:  #d1d9e0b3;
-  --link:          #0969da;
-  --accent:        #0969da;
-
-  --add-bg:        #e6ffec;
-  --add-num:       #ccffd8;
-  --add-word:      #abf2bc;
-  --add-line:      #2da44e;
-  --del-bg:        #ffebe9;
-  --del-num:       #ffd7d5;
-  --del-word:      #ffc1c0;
-  --del-line:      #cf222e;
-  --hunk-bg:       #ddf4ff;
-  --hunk-fg:       #59636e;
-  --hunk-hover:    #b6e3ff;
-  --mod-line:      #bf8700;
-  --caret-bg:      #0969da14;
+  --c-bg:          #faf9f5;
+  --c-fg:          #1f1e1d;
+  --c-muted:       #73716c;
+  --c-border:      #e3e1d8;
+  --c-inset:       #f0eee6;
+  --c-accent:      #d97757;
 
   --mono: ui-monospace, "Cascadia Mono", "Segoe UI Mono", Consolas, monospace;
   --sans: -apple-system, "Segoe UI", system-ui, sans-serif;
@@ -40,28 +30,13 @@
 body.dark {
   color-scheme: dark;
 
-  --fg:            #e6edf3;
-  --fg-muted:      #9198a1;
-  --bg:            #0d1117;
-  --bg-inset:      #151b23;
-  --border:        #3d444d;
-  --border-muted:  #3d444db3;
-  --link:          #4493f8;
-  --accent:        #4493f8;
+  --c-bg:          #262624;
+  --c-fg:          #f0efea;
+  --c-muted:       #a19e96;
+  --c-border:      #3d3c38;
+  --c-inset:       #1f1e1d;
+  --c-accent:      #d97757;
 
-  --add-bg:        #2ea04326;
-  --add-num:       #2ea0434d;
-  --add-word:      #2ea04366;
-  --add-line:      #3fb950;
-  --del-bg:        #f8514926;
-  --del-num:       #f851494d;
-  --del-word:      #f8514966;
-  --del-line:      #f85149;
-  --hunk-bg:       #388bfd26;
-  --hunk-fg:       #9198a1;
-  --hunk-hover:    #388bfd40;
-  --mod-line:      #d29922;
-  --caret-bg:      #4493f81f;
 }
 
 * { box-sizing: border-box; }
@@ -74,8 +49,8 @@ html, body {
 body {
   display: flex;
   flex-direction: column;
-  background: var(--bg);
-  color: var(--fg);
+  background: var(--c-bg);
+  color: var(--c-fg);
   font-family: var(--sans);
   font-size: 14px;
   line-height: 1.6;
@@ -91,10 +66,10 @@ body {
   justify-content: space-between;
   gap: 12px;
   padding: 5px 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-inset);
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-inset);
   font-size: 12px;
-  color: var(--fg-muted);
+  color: var(--c-muted);
   user-select: none;
 }
 
@@ -106,7 +81,7 @@ body {
 
 body.dirty #title::after {
   content: " •";
-  color: var(--mod-line);
+  color: var(--c-accent);
 }
 
 #counts {
@@ -116,16 +91,19 @@ body.dirty #title::after {
   letter-spacing: 0.02em;
 }
 
-body.diff #counts { color: var(--fg); }
+body.diff #counts { color: var(--c-fg); }
 
 .notice {
   flex: 0 0 auto;
   padding: 8px 12px;
   font-size: 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-inset);
-  color: var(--fg-muted);
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-inset);
+  color: var(--c-muted);
 }
+
+body.diff #scroller,
+body.diff #content { background: var(--ed-bg, var(--c-bg)); }
 
 #scroller {
   flex: 1 1 auto;
@@ -140,6 +118,9 @@ body.diff #counts { color: var(--fg); }
   padding: 16px 24px 60vh;
   word-wrap: break-word;
 }
+
+/* Ctrl+scroll in the editor moves --preview-scale, so both panes zoom together. */
+.markdown-body { font-size: calc(14px * var(--preview-scale, 1)); }
 
 /* ------------------------------------------------------------- markdown -- */
 
@@ -156,12 +137,12 @@ body.diff #counts { color: var(--fg); }
   line-height: 1.25;
 }
 
-.markdown-body h1 { font-size: 2em;    padding-bottom: .3em; border-bottom: 1px solid var(--border-muted); }
-.markdown-body h2 { font-size: 1.5em;  padding-bottom: .3em; border-bottom: 1px solid var(--border-muted); }
+.markdown-body h1 { font-size: 1.9em;  padding-bottom: .3em; border-bottom: 1px solid var(--c-border); }
+.markdown-body h2 { font-size: 1.45em; padding-bottom: .3em; border-bottom: 1px solid var(--c-border); }
 .markdown-body h3 { font-size: 1.25em; }
 .markdown-body h4 { font-size: 1em; }
 .markdown-body h5 { font-size: .875em; }
-.markdown-body h6 { font-size: .85em; color: var(--fg-muted); }
+.markdown-body h6 { font-size: .85em; color: var(--c-muted); }
 
 .markdown-body p,
 .markdown-body blockquote,
@@ -172,7 +153,7 @@ body.diff #counts { color: var(--fg); }
 .markdown-body pre,
 .markdown-body details { margin: 0 0 16px; }
 
-.markdown-body a { color: var(--link); text-decoration: none; }
+.markdown-body a { color: var(--c-accent); text-decoration: none; }
 .markdown-body a:hover { text-decoration: underline; }
 
 .markdown-body ul, .markdown-body ol { padding-left: 2em; }
@@ -181,15 +162,15 @@ body.diff #counts { color: var(--fg); }
 
 .markdown-body blockquote {
   padding: 0 1em;
-  color: var(--fg-muted);
-  border-left: .25em solid var(--border);
+  color: var(--c-muted);
+  border-left: 3px solid var(--c-accent);
 }
 
 .markdown-body hr {
   height: 1px;
   margin: 24px 0;
   border: 0;
-  background: var(--border);
+  background: var(--c-border);
 }
 
 .markdown-body code {
@@ -197,8 +178,8 @@ body.diff #counts { color: var(--fg); }
   margin: 0;
   font-family: var(--mono);
   font-size: 85%;
-  background: var(--bg-inset);
-  border-radius: 6px;
+  background: var(--c-inset);
+  border-radius: 5px;
 }
 
 .markdown-body pre {
@@ -206,8 +187,9 @@ body.diff #counts { color: var(--fg); }
   overflow-x: auto;
   font-size: 85%;
   line-height: 1.45;
-  background: var(--bg-inset);
-  border-radius: 6px;
+  background: var(--c-inset);
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
 }
 
 .markdown-body pre code {
@@ -228,13 +210,13 @@ body.diff #counts { color: var(--fg); }
 
 .markdown-body th, .markdown-body td {
   padding: 6px 13px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--c-border);
 }
 
-.markdown-body th { font-weight: 600; background: var(--bg-inset); }
-.markdown-body tr:nth-child(2n) td { background: var(--bg-inset); }
+.markdown-body th { font-weight: 600; background: var(--c-inset); }
+.markdown-body tr:nth-child(2n) td { background: var(--c-inset); }
 
-.markdown-body img { max-width: 100%; background: var(--bg); }
+.markdown-body img { max-width: 100%; background: var(--c-bg); }
 
 .markdown-body input.mdp-task {
   margin: 0 .35em 0 -1.4em;
@@ -247,43 +229,53 @@ body.diff #counts { color: var(--fg); }
 /* ------------------------------------------------------- unified diff -- */
 
 /* The diff is a source view, so it takes the whole width of the panel rather
-   than the reading measure the preview uses. */
+   than the reading measure the preview uses. Its font, ground and every syntax
+   colour come from --ed-* variables that theme.js writes from Notepad++'s live
+   style table. The fallbacks below only apply before the first theme message. */
 body.diff #content {
   max-width: none;
   margin: 0;
   padding: 0 0 60vh;
 }
 
+/* Fixed layout, because a docked panel is narrow and an auto-sized table lets a
+   long line push the code column past the edge, where it is clipped and lost.
+   Fixed widths on the three gutter columns leave the remainder to the code,
+   which then wraps. */
 .diff-table {
   display: table;
   width: 100%;
-  table-layout: auto;
+  table-layout: fixed;
   border-collapse: collapse;
-  font-family: var(--mono);
-  font-size: 12px;
-  line-height: 20px;
+  font-family: var(--ed-font, ui-monospace, Consolas, monospace);
+  font-size: var(--ed-size, 12px);
+  line-height: 1.55;
+  color: var(--ed-fg, #1f2328);
+  background: var(--ed-bg, #ffffff);
   tab-size: 4;
 }
 
 .diff-table td { vertical-align: top; padding: 0; }
 
+/* Widths live on the colgroup; these two rules only carry appearance. */
+.diff-table col.col-num  { width: 6ch; }
+.diff-table col.col-mark { width: 3ch; }
+
 .dl .num {
-  width: 1%;
-  min-width: 42px;
-  padding: 0 10px;
+  padding: 0 5px;
   text-align: right;
-  color: var(--fg-muted);
-  background: var(--bg-inset);
-  border-right: 1px solid var(--border-muted);
+  font-variant-numeric: tabular-nums;
+  color: var(--ed-gutter-fg, #59636e);
+  background: var(--ed-gutter-bg, #f6f8fa);
   user-select: none;
   white-space: nowrap;
+  overflow: hidden;
 }
 
 .dl .mark {
-  width: 1%;
-  padding: 0 6px;
+  padding: 0 2px;
   text-align: center;
-  color: var(--fg-muted);
+  opacity: .75;
   user-select: none;
 }
 
@@ -293,61 +285,59 @@ body.diff #content {
   overflow-wrap: anywhere;
 }
 
-/* Added and removed lines tint the whole row, with a stronger tint on the
-   gutter, which is what makes a diff scannable at a glance. */
-.dl-add .code, .dl-add .mark { background: var(--add-bg); }
-.dl-add .num  { background: var(--add-num); border-right-color: var(--add-line); color: var(--fg); }
-.dl-add .mark { color: var(--add-line); font-weight: 600; }
+/* Change tints are translucent rather than solid, so they read correctly over
+   whatever background the editor theme happens to use, light or dark. */
+.dl-add .code, .dl-add .mark { background: rgba(46, 160, 67, 0.16); }
+.dl-add .num                 { background: rgba(46, 160, 67, 0.30); }
+.dl-add .mark                { color: #2da44e; font-weight: 700; }
 
-.dl-del .code, .dl-del .mark { background: var(--del-bg); }
-.dl-del .num  { background: var(--del-num); border-right-color: var(--del-line); color: var(--fg); }
-.dl-del .mark { color: var(--del-line); font-weight: 600; }
+.dl-del .code, .dl-del .mark { background: rgba(248, 81, 73, 0.14); }
+.dl-del .num                 { background: rgba(248, 81, 73, 0.28); }
+.dl-del .mark                { color: #cf222e; font-weight: 700; }
 
-.dl .code .wa { background: var(--add-word); border-radius: 2px; }
-.dl .code .wd { background: var(--del-word); border-radius: 2px; }
+.dl .code .wa { background: rgba(46, 160, 67, 0.34); border-radius: 2px; }
+.dl .code .wd { background: rgba(248, 81, 73, 0.32); border-radius: 2px; }
 
 /* The @@ bar over a collapsed region. */
 .dl-gap .num,
 .dl-gap .code {
-  background: var(--hunk-bg);
-  color: var(--hunk-fg);
-  border-top: 1px solid var(--border-muted);
-  border-bottom: 1px solid var(--border-muted);
+  background: rgba(84, 139, 253, 0.14);
+  color: var(--ed-gutter-fg, #59636e);
+  border-top: 1px solid rgba(127, 127, 127, 0.22);
+  border-bottom: 1px solid rgba(127, 127, 127, 0.22);
 }
 
 .dl-gap .gap-expand {
   text-align: center;
   cursor: pointer;
-  font-size: 14px;
-  line-height: 20px;
+  font-size: 13px;
 }
 
-.dl-gap .gap-expand:hover { background: var(--hunk-hover); color: var(--fg); }
+.dl-gap .gap-expand:hover { background: rgba(84, 139, 253, 0.3); }
 
 .dl-gap .gap-head {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  opacity: .85;
 }
 
 .diff-empty {
   margin: 0;
   padding: 24px;
   text-align: center;
-  color: var(--fg-muted);
+  color: var(--c-muted);
   font-size: 13px;
 }
 
 /* ---------------------------------------------------------- caret trace -- */
 
-/* Where the editor caret sits. Rendered as a left accent so it reads on both a
-   prose block and a diff row without fighting the diff tint. */
-.mdp-caret {
-  box-shadow: inset 3px 0 0 0 var(--accent);
-}
+/* Where the editor caret sits. A left accent reads on a prose block and on a
+   diff row alike, without fighting the change tint. */
+.mdp-caret { box-shadow: inset 3px 0 0 0 var(--c-accent); }
 
 .markdown-body .mdp-caret {
-  background-image: linear-gradient(var(--caret-bg), var(--caret-bg));
+  background-image: linear-gradient(rgba(217, 119, 87, 0.09), rgba(217, 119, 87, 0.09));
 }
 
 /* ------------------------------------------------------------ scrollbar -- */
@@ -355,8 +345,9 @@ body.diff #content {
 #scroller::-webkit-scrollbar { width: 12px; }
 #scroller::-webkit-scrollbar-track { background: transparent; }
 #scroller::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border: 3px solid var(--bg);
+  background: rgba(127, 127, 127, 0.4);
+  border: 3px solid transparent;
+  background-clip: content-box;
   border-radius: 6px;
 }
-#scroller::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
+#scroller::-webkit-scrollbar-thumb:hover { background: rgba(127, 127, 127, 0.7); background-clip: content-box; }

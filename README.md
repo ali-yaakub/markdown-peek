@@ -3,7 +3,7 @@
 A Notepad++ plugin with a docked Markdown preview, scroll sync from the editor, and a
 GitHub-style unified diff of the file you are editing.
 
-Built and tested against Notepad++ 8.8.7 x64 on Windows 11.
+Built and tested against Notepad++ 8.8.7 and 8.9.7, x64, on Windows 11.
 
 ## What it does
 
@@ -15,7 +15,17 @@ Built and tested against Notepad++ 8.8.7 x64 on Windows 11.
 - **Inline diff.** Renders the source as a unified diff: two line-number gutters, `+`/`−`
   markers, tinted rows, word-level highlights inside edited lines, and `@@` headers naming
   the Markdown section. Distant unchanged regions collapse behind an expander.
+- **Your theme, not a copy of it.** The diff's font, background, gutter and every syntax
+  colour are read out of Notepad++'s live Scintilla style table. Change theme, or edit a
+  style in the Style Configurator, and the panel follows. Only the red and green change
+  tints are the plugin's own, and they are translucent so they sit correctly on any
+  background.
+- **Zoom follows the editor.** Ctrl+scroll in Notepad++ and both panes resize together.
 - **Opens itself for Markdown.** Activating a `.md` buffer opens the panel.
+
+The preview is styled separately, after Claude Code: warm ground, coral accent, a reading
+measure. It is a reading surface rather than a second editor, so it does not try to look
+like one.
 
 ## Install
 
@@ -77,10 +87,11 @@ overwritten by an upgrade, so hand edits survive.
 | File | Responsibility |
 | --- | --- |
 | `index.html` | Page shell and content security policy |
-| `style.css` | Both palettes, chosen by Notepad++'s dark mode setting |
+| `style.css` | The preview palette, and the diff's layout. Diff colours are not here; they arrive at runtime |
 | `render.js` | markdown-it configuration and the source-line map |
-| `diff.js` | Myers line diff, word diff, hunk grouping |
+| `diff.js` | Myers line diff, word diff, style-run expansion, hunk grouping |
 | `diffview.js` | The unified diff table |
+| `theme.js` | Turns Notepad++'s style table into CSS rules |
 | `sync.js` | Source line to pixel offset, and the scroll placement |
 | `app.js` | The bridge, and which of the two views to show |
 
@@ -117,7 +128,7 @@ Windows 11.
 node test\diff.test.js
 ```
 
-51 assertions over the diff engine. The load-bearing ones are the reconstruction
+58 assertions over the diff engine. The load-bearing ones are the reconstruction
 properties: dropping every added row must rebuild the baseline exactly, and dropping every
 deleted row must rebuild the current document exactly. A 4,000-line document with 45 edits
 diffs in about 12 ms.
@@ -139,9 +150,18 @@ WebView2 control in it. Two virtual hosts are mapped into the WebView: `mdpeek.l
 serves the plugin's assets, and `mdpeek.doc` serves the edited file's own folder, so
 relative images and links resolve without granting the page access to the disk.
 
-The native side posts JSON to the page on four events — buffer activated, text modified
-(debounced 180 ms), viewport moved (throttled 25 ms), and dark mode changed. The page
-posts back short `verb:payload` strings, which is why the plugin carries no JSON parser.
+The native side posts JSON to the page on six events — buffer activated, text modified
+(debounced 180 ms), viewport moved (throttled 25 ms), zoom changed, dark mode changed, and
+styles reconfigured. The page posts back short `verb:payload` strings, which is why the
+plugin carries no JSON parser.
+
+Styling travels with the document. `SCI_GETSTYLEDTEXTFULL` returns the whole buffer as
+character and lexer-style-index pairs in one call, which the plugin run-length encodes and
+sends alongside the text; the diff baseline, which is in no editor, is lexed by a hidden
+Scintilla created with `NPPM_CREATESCINTILLAHANDLE` and the Lexilla lexer from
+`NPPM_CREATELEXER`. Colours for those indices come from `SCI_STYLEGETFORE` and its
+siblings on the live view, so they are the user's theme by construction rather than by
+imitation.
 
 Scripts embedded in a Markdown file cannot run: the page sets
 `script-src 'self'` and the diff view escapes everything it renders.

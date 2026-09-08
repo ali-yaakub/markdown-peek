@@ -1,9 +1,13 @@
 /* Markdown Peek - the diff engine.
  *
  * Produces the row list a unified diff view renders: one row per source line,
- * carrying its old and new line numbers, its kind, and word-level marks where a
- * line was edited rather than replaced wholesale. Grouping into hunks with a few
- * lines of context, and collapsing everything else, happens here too.
+ * carrying its old and new line numbers, its kind, the lexer style index of every
+ * character, and word-level marks where a line was edited rather than replaced
+ * wholesale. Grouping into hunks with a few lines of context, and collapsing
+ * everything else, happens here too.
+ *
+ * No HTML is built here and no colour is chosen here. Rows describe what changed;
+ * the view decides how that looks.
  */
 (function (global) {
   'use strict';
@@ -159,20 +163,27 @@
   }
 
   /**
-   * Escaped HTML for a replaced pair, with the differing words wrapped.
-   * @returns {{oldHtml:string, newHtml:string}|null} null when the two lines are
-   *   too dissimilar for word marks to help, in which case they read better as a
-   *   plain removal followed by a plain addition.
+   * Character ranges that differ between a replaced pair.
+   * @returns {{oldMark:Uint8Array, newMark:Uint8Array}|null} null when the lines
+   *   are too dissimilar for word marks to help, in which case they read better
+   *   as a plain removal followed by a plain addition.
    */
-  function wordMarks(oldLine, newLine) {
+  function wordMarkRanges(oldLine, newLine) {
     var A = tokenise(oldLine), B = tokenise(newLine);
     if (!A.length || !B.length) return null;
     if (A.length + B.length > 4000) return null;
     if (similarity(A, B) < 0.35) return null;
 
     var flat = myersOps(A, B);
-    var oldHtml = '', newHtml = '';
-    var ai = 0, bi = 0, idx = 0, changed = false;
+    var oldMark = new Uint8Array(oldLine.length);
+    var newMark = new Uint8Array(newLine.length);
+    var ai = 0, bi = 0, aPos = 0, bPos = 0, idx = 0, changed = false;
+
+    function advance(tokens, from, count) {
+      var n = 0;
+      for (var i = 0; i < count; i++) n += tokens[from + i].length;
+      return n;
+    }
 
     while (idx < flat.length) {
       var kind = flat[idx];
@@ -180,25 +191,56 @@
       while (idx + n < flat.length && flat[idx + n] === kind) n++;
 
       if (kind === 0) {
-        var same = esc(A.slice(ai, ai + n).join(''));
-        oldHtml += same;
-        newHtml += same;
+        var same = advance(A, ai, n);
+        aPos += same; bPos += advance(B, bi, n);
         ai += n; bi += n;
       } else if (kind === -1) {
         var gone = A.slice(ai, ai + n).join('');
-        oldHtml += gone.trim() ? '<span class="wd">' + esc(gone) + '</span>' : esc(gone);
-        if (gone.trim()) changed = true;
+        if (gone.trim()) { oldMark.fill(1, aPos, aPos + gone.length); changed = true; }
+        aPos += gone.length;
         ai += n;
       } else {
         var came = B.slice(bi, bi + n).join('');
-        newHtml += came.trim() ? '<span class="wa">' + esc(came) + '</span>' : esc(came);
-        if (came.trim()) changed = true;
+        if (came.trim()) { newMark.fill(1, bPos, bPos + came.length); changed = true; }
+        bPos += came.length;
         bi += n;
       }
       idx += n;
     }
 
-    return changed ? { oldHtml: oldHtml, newHtml: newHtml } : null;
+    return changed ? { oldMark: oldMark, newMark: newMark } : null;
+  }
+
+  /* ------------------------------------------------------- style runs ---- */
+
+  // "id:len,id:len|id:len|..." from the plugin, one group per line. Expanded to
+  // one style index per character so it can be sliced alongside the text.
+  function expandRuns(encoded, lines, fallback) {
+    var out = new Array(lines.length);
+    var groups = typeof encoded === 'string' && encoded.length ? encoded.split('|') : [];
+
+    for (var i = 0; i < lines.length; i++) {
+      var styles = new Uint8Array(lines[i].length);
+      if (fallback) styles.fill(fallback);
+
+      var g = groups[i];
+      if (g) {
+        var pos = 0;
+        var parts = g.split(',');
+        for (var j = 0; j < parts.length && pos < styles.length; j++) {
+          var colon = parts[j].indexOf(':');
+          if (colon < 0) continue;
+          var id = parseInt(parts[j].slice(0, colon), 10);
+          var len = parseInt(parts[j].slice(colon + 1), 10);
+          if (isNaN(id) || isNaN(len)) continue;
+          var end = Math.min(styles.length, pos + len);
+          styles.fill(id, pos, end);
+          pos = end;
+        }
+      }
+      out[i] = styles;
+    }
+    return out;
   }
 
   /* ----------------------------------------------------------- unified --- */
@@ -218,26 +260,41 @@
    *
    * @param {string} baseText
    * @param {string} curText
-   * @param {{context?:number}} [opts] Lines of unchanged context kept either side
-   *   of a change. Everything further away is collapsed into an expandable gap.
+   * @param {{context?:number, baseRuns?:string, curRuns?:string, defaultStyle?:number}} [opts]
+   *   context is how many unchanged lines to keep either side of a change;
+   *   baseRuns and curRuns are the encoded lexer style runs for each side.
    * @returns {{rows:Array, hunks:Array, added:number, removed:number,
    *            oldTotal:number, newTotal:number, identical:boolean}}
-   *   Each row is {kind:'ctx'|'add'|'del', oldLine, newLine, html}. Line numbers
-   *   are zero-based document lines, matching Scintilla, or null where the line
-   *   does not exist on that side.
+   *   Each row is {kind, oldLine, newLine, text, styles, mark}. Line numbers are
+   *   zero-based document lines, matching Scintilla, or null where the line does
+   *   not exist on that side. styles holds one lexer style index per character;
+   *   mark flags the characters this edit changed.
    */
   function unified(baseText, curText, opts) {
-    var context = opts && typeof opts.context === 'number' ? opts.context : 3;
+    opts = opts || {};
+    var context = typeof opts.context === 'number' ? opts.context : 3;
+    var fallback = opts.defaultStyle || 0;
+
     var baseLines = baseText.split('\n');
     var curLines = curText.split('\n');
+
+    var baseStyles = expandRuns(opts.baseRuns, baseLines, fallback);
+    var curStyles = expandRuns(opts.curRuns, curLines, fallback);
 
     var runs = diffRuns(baseLines, curLines);
     var rows = [];
     var added = 0, removed = 0;
     var i;
 
-    function push(kind, oldLine, newLine, html) {
-      rows.push({ kind: kind, oldLine: oldLine, newLine: newLine, html: html });
+    function push(kind, oldLine, newLine, text, styles, mark) {
+      rows.push({
+        kind: kind,
+        oldLine: oldLine,
+        newLine: newLine,
+        text: text,
+        styles: styles,
+        mark: mark || null
+      });
     }
 
     for (var r = 0; r < runs.length; r++) {
@@ -245,14 +302,15 @@
 
       if (run.op === '=') {
         for (i = 0; i < run.a1 - run.a0; i++) {
-          push('ctx', run.a0 + i, run.b0 + i, esc(curLines[run.b0 + i]));
+          var b = run.b0 + i;
+          push('ctx', run.a0 + i, b, curLines[b], curStyles[b]);
         }
 
       } else if (run.op === '-') {
-        for (i = run.a0; i < run.a1; i++) { push('del', i, null, esc(baseLines[i])); removed++; }
+        for (i = run.a0; i < run.a1; i++) { push('del', i, null, baseLines[i], baseStyles[i]); removed++; }
 
       } else if (run.op === '+') {
-        for (i = run.b0; i < run.b1; i++) { push('add', null, i, esc(curLines[i])); added++; }
+        for (i = run.b0; i < run.b1; i++) { push('add', null, i, curLines[i], curStyles[i]); added++; }
 
       } else {
         // Deletions first, then additions, the way a unified diff reads. Lines
@@ -263,19 +321,19 @@
         var marks = new Array(pairs);
 
         for (i = 0; i < pairs; i++) {
-          marks[i] = wordMarks(baseLines[run.a0 + i], curLines[run.b0 + i]);
+          marks[i] = wordMarkRanges(baseLines[run.a0 + i], curLines[run.b0 + i]);
         }
 
         for (i = 0; i < aCount; i++) {
-          var oldIdx = run.a0 + i;
-          push('del', oldIdx, null,
-               (i < pairs && marks[i]) ? marks[i].oldHtml : esc(baseLines[oldIdx]));
+          var oi = run.a0 + i;
+          push('del', oi, null, baseLines[oi], baseStyles[oi],
+               (i < pairs && marks[i]) ? marks[i].oldMark : null);
           removed++;
         }
         for (i = 0; i < bCount; i++) {
-          var newIdx = run.b0 + i;
-          push('add', null, newIdx,
-               (i < pairs && marks[i]) ? marks[i].newHtml : esc(curLines[newIdx]));
+          var ni = run.b0 + i;
+          push('add', null, ni, curLines[ni], curStyles[ni],
+               (i < pairs && marks[i]) ? marks[i].newMark : null);
           added++;
         }
       }
@@ -288,12 +346,11 @@
 
     var hunks = [];
     if (changedAt.length) {
-      var start = Math.max(0, changedAt[0] - context);
-      var end = Math.min(rows.length - 1, changedAt[0] + context);
-
       // An expander bar occupies a row of its own, so collapsing one or two
       // lines behind one saves nothing and reads worse than showing them.
       var MIN_GAP = 3;
+      var start = Math.max(0, changedAt[0] - context);
+      var end = Math.min(rows.length - 1, changedAt[0] + context);
 
       for (i = 1; i < changedAt.length; i++) {
         var c = changedAt[i];
@@ -337,7 +394,8 @@
   global.MdPeekDiff = {
     unified: unified,
     diffRuns: diffRuns,
-    wordMarks: wordMarks,
+    wordMarkRanges: wordMarkRanges,
+    expandRuns: expandRuns,
     escapeHtml: esc
   };
 

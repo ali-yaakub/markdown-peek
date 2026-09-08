@@ -55,7 +55,7 @@ New-Item -ItemType Directory -Force -Path $dist | Out-Null
 
 # ----------------------------------------------------------------- build ----
 
-$sources = @('Plugin.cpp', 'Util.cpp', 'Panel.cpp') | ForEach-Object { Join-Path $src $_ }
+$sources = @('Plugin.cpp', 'Util.cpp', 'Panel.cpp', 'Theme.cpp') | ForEach-Object { Join-Path $src $_ }
 
 $cl = @(
     '/nologo', '/c', '/EHsc', '/W4', '/O2', '/MT', '/GS', '/std:c++17', '/permissive-',
