@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Diff engine
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run the diff tests
+        run: node test/diff.test.js
+
+  build:
+    name: Plugin (x64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        shell: pwsh
+        run: .\build.ps1
+
+      - name: Check the staged output
+        shell: pwsh
+        run: |
+          $dll = 'dist\MarkdownPeek\MarkdownPeek.dll'
+          if (-not (Test-Path $dll)) { throw "$dll was not produced" }
+          $size = [math]::Round((Get-Item $dll).Length / 1KB)
+          Write-Host "MarkdownPeek.dll  ${size} KiB"
+
+          # The folder name has to match the DLL name or Notepad++ skips it,
+          # and the assets have to carry the stamp the plugin refreshes against.
+          if (-not (Test-Path 'dist\MarkdownPeek\assets\VERSION')) { throw 'assets\VERSION is missing' }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MarkdownPeek
+          path: dist/MarkdownPeek
+          if-no-files-found: error

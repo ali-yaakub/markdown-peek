@@ -1,0 +1,47 @@
+name: Bug report
+description: Something in the panel behaves differently from what the README says.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Most panel problems are visible in the plugin's own log. Set `debugLog=1` in
+        `%APPDATA%\Notepad++\plugins\config\MarkdownPeek\MarkdownPeek.ini`, reproduce
+        the problem, and attach `debug.log` from the same folder. For anything about
+        scroll position or sizing, also set `window.MDPEEK_TRACE = true` in
+        `assets\trace.js` beside it, which adds the page's side of the story.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got instead.
+    validations:
+      required: true
+
+  - type: input
+    id: npp
+    attributes:
+      label: Notepad++ version and architecture
+      placeholder: 8.9.7, x64
+    validations:
+      required: true
+
+  - type: input
+    id: webview2
+    attributes:
+      label: WebView2 runtime version
+      description: Settings > Apps > Microsoft Edge WebView2 Runtime, or `Get-AppxPackage`.
+      placeholder: 141.0.3537.85
+
+  - type: textarea
+    id: document
+    attributes:
+      label: The document, or the smallest part of it that shows the problem
+      render: markdown
+
+  - type: textarea
+    id: log
+    attributes:
+      label: debug.log
+      render: text
