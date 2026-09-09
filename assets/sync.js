@@ -72,10 +72,9 @@
     var max = container.scrollHeight - container.clientHeight;
     var want = Math.max(0, Math.min(max, target));
 
-    // A line is a coarse unit. After the user scrolls the preview, the editor
-    // lands on the nearest whole line and reports it back; moving the preview
-    // that last few pixels would show as a snap under their cursor for no gain.
-    if (Math.abs(want - container.scrollTop) < 18)
+    // Sub-pixel corrections are not worth a reflow, but anything larger is:
+    // tracking the editor should be continuous, not stepped.
+    if (Math.abs(want - container.scrollTop) < 1)
         return;
 
     container.scrollTop = want;

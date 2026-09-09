@@ -122,7 +122,13 @@ constexpr UINT_PTR kTimerDoc    = 1;
 constexpr UINT_PTR kTimerScroll = 2;
 constexpr UINT_PTR kTimerDock   = 3;
 constexpr UINT     kDocDelayMs    = 180;
-constexpr UINT     kScrollDelayMs = 25;
+
+// A trailing debounce was wrong here. While the wheel is turning, every notch
+// pushed the update further out, so the preview sat still through the whole
+// gesture and jumped at the end. This is a leading-edge throttle instead: the
+// first event goes straight through and the rest are rate-limited, which is
+// what makes the two panes move together.
+constexpr UINT     kViewMinGapMs  = 16;
 
 HWND  s_hwnd = nullptr;
 bool  s_registered = false;   // registered with the docking manager
@@ -145,6 +151,7 @@ ComPtr<ICoreWebView2Controller> s_controller;
 ComPtr<ICoreWebView2>           s_web;
 bool s_webReady = false;
 
+DWORD s_lastViewPush = 0;        // tick of the last viewport push, for the throttle
 std::wstring s_mappedDocDir;     // folder currently mapped to kDocHost
 std::wstring s_lastPushedPath;
 std::string  s_lastBaseline;
@@ -207,10 +214,16 @@ void pushViewport()
     if (!sci)
         return;
 
+    // wsprintfA has no floating point, so the fractional line is written out by
+    // hand. Three decimals is finer than any wrapped line needs.
+    const double exact = firstVisibleDocLineExact(sci);
+    const int whole = static_cast<int>(exact);
+    const int milli = static_cast<int>((exact - whole) * 1000.0);
+
     char buf[256] = {};
     wsprintfA(buf,
-        "{\"t\":\"view\",\"first\":%d,\"caret\":%d,\"screen\":%d,\"total\":%d}",
-        firstVisibleDocLine(sci), caretLine(sci), linesOnScreen(sci), lineCount(sci));
+        "{\"t\":\"view\",\"first\":%d.%03d,\"caret\":%d,\"screen\":%d,\"total\":%d}",
+        whole, milli, caretLine(sci), linesOnScreen(sci), lineCount(sci));
     dbg("pushViewport %s", buf);
     postJson(buf);
 }
@@ -525,6 +538,7 @@ LRESULT CALLBACK panelProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         if (wp == kTimerScroll)
         {
             ::KillTimer(hwnd, kTimerScroll);
+            s_lastViewPush = ::GetTickCount();
             pushViewport();
             return 0;
         }
@@ -727,11 +741,22 @@ void Panel::onZoomChanged()
 void Panel::onViewportChanged()
 {
     if (!s_visible || !s_hwnd)
-    {
-        dbg("onViewportChanged ignored (visible=%d hwnd=%d)", s_visible ? 1 : 0, s_hwnd ? 1 : 0);
         return;
+
+    const DWORD now = ::GetTickCount();
+    const DWORD since = now - s_lastViewPush;
+
+    if (since >= kViewMinGapMs)
+    {
+        ::KillTimer(s_hwnd, kTimerScroll);
+        s_lastViewPush = now;
+        pushViewport();
     }
-    ::SetTimer(s_hwnd, kTimerScroll, kScrollDelayMs, nullptr);
+    else
+    {
+        // Too soon. Let the pending timer carry the most recent position.
+        ::SetTimer(s_hwnd, kTimerScroll, kViewMinGapMs - since, nullptr);
+    }
 }
 
 void Panel::onFileSaved()

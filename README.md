@@ -11,9 +11,11 @@ Built and tested against Notepad++ 8.8.7 and 8.9.7, x64, on Windows 11.
   markdown-it with GFM tables, strikethrough, autolinks and task lists.
 - **Scroll sync, both ways.** Scroll the editor and the preview follows; scroll the preview
   and the editor follows. Placement comes from a source map, not a scroll percentage, so it
-  stays accurate across code blocks, tables and images. Whichever pane you touch holds the
-  scrollbar for a moment, so the two never chase each other. Editor-to-preview tracks either
-  the first visible line or the caret.
+  stays accurate across code blocks, tables and images. The reported line is fractional, so
+  a wrapped line advances the preview smoothly rather than in jumps, and updates are
+  throttled rather than debounced, so the preview tracks a gesture instead of catching up
+  after it. Whichever pane you touch holds the scrollbar for a moment, so the two never
+  chase each other. Editor-to-preview tracks either the first visible line or the caret.
 - **Inline diff.** Renders the source as a unified diff: two line-number gutters, `+`/`−`
   markers, tinted rows, word-level highlights inside edited lines, and `@@` headers naming
   the Markdown section. Distant unchanged regions collapse behind an expander.
@@ -111,7 +113,8 @@ installed copy is refreshed and whatever is replaced is kept beside it as a `.ba
 that, upgrading the plugin left old scripts running against a new DLL.
 
 Setting `debugLog=1` traces notifications, messages and scroll positions to
-`debug.log` in the same folder; setting `window.MDPEEK_TRACE = true` in `trace.js`
+`debug.log` in the same folder. An `SCN_UPDATEUI` line with no `pushViewport` after it
+means the panel was hidden for that buffer; setting `window.MDPEEK_TRACE = true` in `trace.js`
 adds the page's side of it.
 
 Settings live in `%APPDATA%\Notepad++\plugins\config\MarkdownPeek\MarkdownPeek.ini`:

@@ -298,6 +298,25 @@ int firstVisibleDocLine(HWND sci)
     return static_cast<int>(::SendMessage(sci, SCI_DOCLINEFROMVISIBLE, static_cast<WPARAM>(vis), 0));
 }
 
+double firstVisibleDocLineExact(HWND sci)
+{
+    if (!sci)
+        return 0.0;
+
+    const int vis = static_cast<int>(::SendMessage(sci, SCI_GETFIRSTVISIBLELINE, 0, 0));
+    const int doc = static_cast<int>(::SendMessage(sci, SCI_DOCLINEFROMVISIBLE, static_cast<WPARAM>(vis), 0));
+    const int visOfDoc = static_cast<int>(::SendMessage(sci, SCI_VISIBLEFROMDOCLINE, static_cast<WPARAM>(doc), 0));
+    const int wraps = static_cast<int>(::SendMessage(sci, SCI_WRAPCOUNT, static_cast<WPARAM>(doc), 0));
+
+    if (wraps <= 1 || vis <= visOfDoc)
+        return static_cast<double>(doc);
+
+    double frac = static_cast<double>(vis - visOfDoc) / static_cast<double>(wraps);
+    if (frac > 0.999)
+        frac = 0.999;
+    return static_cast<double>(doc) + frac;
+}
+
 int caretLine(HWND sci)
 {
     if (!sci)

@@ -63,6 +63,13 @@ extern Config g_cfg;
 HWND        currentScintilla();
 std::string editorTextUtf8(HWND sci);
 int         firstVisibleDocLine(HWND sci);
+
+// The same, but fractional. Scintilla scrolls by display lines, so with word
+// wrap on, several wheel notches can leave the whole-number document line
+// unchanged and the preview standing still. The fraction says how far through
+// a wrapped line the viewport has reached, which is what makes the preview
+// move at the same rate as the editor rather than in jumps.
+double      firstVisibleDocLineExact(HWND sci);
 int         caretLine(HWND sci);
 int         linesOnScreen(HWND sci);
 int         lineCount(HWND sci);
