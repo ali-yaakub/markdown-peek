@@ -50,9 +50,16 @@ static void copyTree(const std::wstring& from, const std::wstring& to, bool over
         std::wstring dst = to + L"\\" + name;
 
         if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+        {
             copyTree(src, dst, overwrite);
+        }
         else
+        {
+            // Keep whatever is being replaced, so an edited asset is recoverable.
+            if (overwrite && ::GetFileAttributesW(dst.c_str()) != INVALID_FILE_ATTRIBUTES)
+                ::CopyFileW(dst.c_str(), (dst + L".bak").c_str(), FALSE);
             ::CopyFileW(src.c_str(), dst.c_str(), overwrite ? FALSE : TRUE);
+        }
     }
     while (::FindNextFileW(h, &fd));
 
@@ -60,11 +67,29 @@ static void copyTree(const std::wstring& from, const std::wstring& to, bool over
 }
 
 // Assets ship next to the DLL and are copied into the user's config folder, which
-// needs no administrator rights. Existing files are left alone unless overwrite is
-// asked for, so hand edits survive a plugin upgrade.
+// needs no administrator rights.
+//
+// Copying only the missing files was wrong: a plugin upgrade then left old
+// scripts running against a new DLL, a mixture neither side was built for. The
+// shipped assets carry a stamp of their own content, and when it moves the
+// installed copy is replaced. Whatever is overwritten is kept beside it as a
+// .bak, so a hand edit is recoverable rather than lost.
 void seedAssets(bool overwrite)
 {
-    copyTree(pluginDllDir() + L"\\assets", assetsDir(), overwrite);
+    const std::wstring src = pluginDllDir() + L"\\assets";
+    const std::wstring dst = assetsDir();
+
+    std::string shipped;
+    std::string installed;
+    readFileAsUtf8(src + L"\\VERSION", shipped);
+    readFileAsUtf8(dst + L"\\VERSION", installed);
+
+    const bool upgrade = !shipped.empty() && shipped != installed;
+    if (upgrade)
+        dbg("assets: stamp moved from '%s' to '%s'; refreshing",
+            installed.empty() ? "(none)" : installed.c_str(), shipped.c_str());
+
+    copyTree(src, dst, overwrite || upgrade);
 }
 
 // -------------------------------------------------------------- strings ----
@@ -147,6 +172,7 @@ void Config::load()
     syncCaret   = ::GetPrivateProfileIntW(L"MarkdownPeek", L"syncCaret",   0, ini.c_str()) != 0;
     baselineGit = ::GetPrivateProfileIntW(L"MarkdownPeek", L"baselineGit", 0, ini.c_str()) != 0;
     maxKiB      = ::GetPrivateProfileIntW(L"MarkdownPeek", L"maxKiB",   4096, ini.c_str());
+    debugLog     = ::GetPrivateProfileIntW(L"MarkdownPeek", L"debugLog",       0, ini.c_str()) != 0;
     widthPercent = ::GetPrivateProfileIntW(L"MarkdownPeek", L"widthPercent", 50, ini.c_str());
     if (widthPercent < 0 || widthPercent > 95)
         widthPercent = 50;
@@ -166,6 +192,7 @@ void Config::save() const
     ::WritePrivateProfileStringW(L"MarkdownPeek", L"baselineGit", baselineGit ? L"1" : L"0", ini.c_str());
     ::WritePrivateProfileStringW(L"MarkdownPeek", L"maxKiB",      std::to_wstring(maxKiB).c_str(), ini.c_str());
     ::WritePrivateProfileStringW(L"MarkdownPeek", L"widthPercent", std::to_wstring(widthPercent).c_str(), ini.c_str());
+    ::WritePrivateProfileStringW(L"MarkdownPeek", L"debugLog",     debugLog ? L"1" : L"0", ini.c_str());
     ::WritePrivateProfileStringW(L"MarkdownPeek", L"extensions",  extensions.c_str(), ini.c_str());
 }
 
@@ -190,6 +217,37 @@ bool Config::matchesExtension(const std::wstring& path) const
         pos = sep + 1;
     }
     return false;
+}
+
+// ---------------------------------------------------------------- debug ----
+
+void dbg(const char* fmt, ...)
+{
+    if (!g_cfg.debugLog)
+        return;
+
+    char line[1024] = {};
+    va_list args;
+    va_start(args, fmt);
+    ::wvsprintfA(line, fmt, args);
+    va_end(args);
+
+    SYSTEMTIME t = {};
+    ::GetLocalTime(&t);
+    char stamp[32] = {};
+    ::wsprintfA(stamp, "%02d:%02d:%02d.%03d  ", t.wHour, t.wMinute, t.wSecond, t.wMilliseconds);
+
+    const std::wstring path = pluginConfigDir() + L"\\debug.log";
+    HANDLE h = ::CreateFileW(path.c_str(), FILE_APPEND_DATA, FILE_SHARE_READ,
+                             nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (h == INVALID_HANDLE_VALUE)
+        return;
+
+    DWORD wrote = 0;
+    ::WriteFile(h, stamp, static_cast<DWORD>(::lstrlenA(stamp)), &wrote, nullptr);
+    ::WriteFile(h, line, static_cast<DWORD>(::lstrlenA(line)), &wrote, nullptr);
+    ::WriteFile(h, "\r\n", 2, &wrote, nullptr);
+    ::CloseHandle(h);
 }
 
 // --------------------------------------------------------------- editor ----

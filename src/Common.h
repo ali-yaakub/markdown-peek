@@ -9,6 +9,7 @@
 #include <vector>
 #include <cstdlib>
 #include <cwctype>
+#include <cstdarg>
 
 #include "PluginInterface.h"
 #include "Docking.h"
@@ -27,6 +28,9 @@ std::wstring pluginConfigDir();  // %APPDATA%\Notepad++\plugins\config\MarkdownP
 std::wstring assetsDir();        // <config>\assets  (user-editable copy)
 void         seedAssets(bool overwrite);
 
+// Appends one line to <config>\MarkdownPeek\debug.log when debugLog is set.
+void dbg(const char* fmt, ...);
+
 // -------------------------------------------------------------- strings ----
 
 std::string  wideToUtf8(const std::wstring& w);
@@ -44,6 +48,7 @@ struct Config
     bool baselineGit = false; // false: last saved on disk; true: git HEAD
     int  maxKiB     = 4096;   // skip auto-render above this document size
     int  widthPercent = 50;   // share of the editor area the dock takes; 0 leaves it alone
+    bool debugLog   = false;  // trace notifications and messages to debug.log
     std::wstring extensions = L"md;markdown;mdown;mkd;mkdn;mdwn;mdtxt;mdtext;rmd;qmd";
 
     void load();

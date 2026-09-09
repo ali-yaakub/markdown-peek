@@ -98,10 +98,20 @@ $assetsOut = Join-Path $dist 'assets'
 if (Test-Path $assetsOut) { Remove-Item $assetsOut -Recurse -Force }
 Copy-Item (Join-Path $root 'assets') $assetsOut -Recurse
 
+# A stamp of the assets' own content. The plugin replaces an installed copy only
+# when this moves, so rebuilding without touching the assets changes nothing on
+# disk for the user.
+$hashes = Get-ChildItem $assetsOut -Recurse -File |
+          Sort-Object FullName |
+          ForEach-Object { (Get-FileHash $_.FullName -Algorithm SHA256).Hash }
+$stamp = (Get-FileHash -InputStream ([IO.MemoryStream]::new(
+            [Text.Encoding]::UTF8.GetBytes(($hashes -join "`n")))) -Algorithm SHA256).Hash.Substring(0, 16)
+Set-Content -Path (Join-Path $assetsOut 'VERSION') -Value $stamp -NoNewline -Encoding ASCII
+
 $dll = Join-Path $dist 'MarkdownPeek.dll'
 $kib = [math]::Round((Get-Item $dll).Length / 1KB)
 Write-Host "Built     : $dll  ($kib KiB)" -ForegroundColor Green
-Write-Host "Assets    : $assetsOut" -ForegroundColor Green
+Write-Host "Assets    : $assetsOut  (stamp $stamp)" -ForegroundColor Green
 
 # --------------------------------------------------------------- install ----
 

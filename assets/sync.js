@@ -68,19 +68,53 @@
     if (mode === 'caret') target -= container.clientHeight / 3;
     else target -= 8;
 
+    lastTarget = target;
     var max = container.scrollHeight - container.clientHeight;
-    container.scrollTop = Math.max(0, Math.min(max, target));
+    var want = Math.max(0, Math.min(max, target));
+
+    // A line is a coarse unit. After the user scrolls the preview, the editor
+    // lands on the nearest whole line and reports it back; moving the preview
+    // that last few pixels would show as a snap under their cursor for no gain.
+    if (Math.abs(want - container.scrollTop) < 18)
+        return;
+
+    container.scrollTop = want;
   }
 
-  // Nearest source line to a pixel offset, for jumping back into the editor.
+  // The inverse of offsetForLine: which source line sits at this pixel offset.
+  // Interpolated, so dragging the preview scrollbar moves the editor smoothly
+  // rather than in jumps between block boundaries.
   function lineAtOffset(top) {
     if (!index.length) return 0;
-    for (var i = index.length - 1; i >= 0; i--) {
-      if (index[i].top <= top && index[i].line !== Number.MAX_SAFE_INTEGER) return index[i].line;
+    if (top <= index[0].top) return index[0].line;
+
+    var lo = 0, hi = index.length - 1;
+    while (lo < hi - 1) {
+      var mid = (lo + hi) >> 1;
+      if (index[mid].top <= top) lo = mid; else hi = mid;
     }
-    return index[0].line;
+
+    var a = index[lo], b = index[hi];
+    if (b.top <= a.top || b.line === Number.MAX_SAFE_INTEGER) return a.line;
+
+    var t = (top - a.top) / (b.top - a.top);
+    return a.line + t * (b.line - a.line);
   }
 
-  global.MdPeekSync = { build: build, scrollTo: scrollTo, lineAtOffset: lineAtOffset };
+  var lastTarget = 0;
+
+  function debug() {
+    return {
+      entries: index.length,
+      first: index.length ? index[0].line : -1,
+      last: index.length > 1 ? index[index.length - 2].line : -1,
+      lastTarget: lastTarget,
+      scrollTop: container ? container.scrollTop : -1,
+      scrollHeight: container ? container.scrollHeight : -1,
+      clientHeight: container ? container.clientHeight : -1
+    };
+  }
+
+  global.MdPeekSync = { build: build, scrollTo: scrollTo, lineAtOffset: lineAtOffset, debug: debug };
 
 })(window);

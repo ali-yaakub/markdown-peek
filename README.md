@@ -9,9 +9,11 @@ Built and tested against Notepad++ 8.8.7 and 8.9.7, x64, on Windows 11.
 
 - **Preview.** Renders the active Markdown buffer in a docked panel as you type, using
   markdown-it with GFM tables, strikethrough, autolinks and task lists.
-- **Scroll sync, editor to preview.** Tracks either the first visible line or the caret
-  line. Placement comes from a source map, not a scroll percentage, so it stays accurate
-  across code blocks, tables and images.
+- **Scroll sync, both ways.** Scroll the editor and the preview follows; scroll the preview
+  and the editor follows. Placement comes from a source map, not a scroll percentage, so it
+  stays accurate across code blocks, tables and images. Whichever pane you touch holds the
+  scrollbar for a moment, so the two never chase each other. Editor-to-preview tracks either
+  the first visible line or the caret.
 - **Inline diff.** Renders the source as a unified diff: two line-number gutters, `+`/`−`
   markers, tinted rows, word-level highlights inside edited lines, and `@@` headers naming
   the Markdown section. Distant unchanged regions collapse behind an expander.
@@ -100,9 +102,17 @@ overwritten by an upgrade, so hand edits survive.
 | `diffview.js` | The unified diff table |
 | `theme.js` | Turns Notepad++'s style table into CSS rules |
 | `sync.js` | Source line to pixel offset, and the scroll placement |
-| `app.js` | The bridge, and which of the two views to show |
+| `app.js` | The bridge, both scroll directions, and which of the two views to show |
 
 The dock width and the toolbar icon are native rather than scripted, in `src\Dock.cpp`.
+
+The shipped assets carry a `VERSION` stamp of their own content. When it moves, the
+installed copy is refreshed and whatever is replaced is kept beside it as a `.bak`. Without
+that, upgrading the plugin left old scripts running against a new DLL.
+
+Setting `debugLog=1` traces notifications, messages and scroll positions to
+`debug.log` in the same folder; setting `window.MDPEEK_TRACE = true` in `trace.js`
+adds the page's side of it.
 
 Settings live in `%APPDATA%\Notepad++\plugins\config\MarkdownPeek\MarkdownPeek.ini`:
 
@@ -114,6 +124,7 @@ syncCaret=0
 baselineGit=0
 maxKiB=4096
 widthPercent=50
+debugLog=0
 extensions=md;markdown;mdown;mkd;mkdn;mdwn;mdtxt;mdtext;rmd;qmd
 ```
 

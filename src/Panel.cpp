@@ -157,7 +157,11 @@ LRESULT CALLBACK panelProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 void postJson(const std::string& json)
 {
     if (!s_webReady || !s_web)
+    {
+        dbg("postJson DROPPED (ready=%d web=%d) %.60s",
+            s_webReady ? 1 : 0, s_web ? 1 : 0, json.c_str());
         return;
+    }
     s_web->PostWebMessageAsJson(utf8ToWide(json).c_str());
 }
 
@@ -207,6 +211,7 @@ void pushViewport()
     wsprintfA(buf,
         "{\"t\":\"view\",\"first\":%d,\"caret\":%d,\"screen\":%d,\"total\":%d}",
         firstVisibleDocLine(sci), caretLine(sci), linesOnScreen(sci), lineCount(sci));
+    dbg("pushViewport %s", buf);
     postJson(buf);
 }
 
@@ -354,7 +359,7 @@ void handleWebMessage(const std::wstring& msg)
     }
     else if (verb == L"log")
     {
-        ::OutputDebugStringW((L"[MarkdownPeek] " + arg + L"\n").c_str());
+        dbg("page: %s", wideToUtf8(arg).c_str());
     }
 }
 
@@ -722,7 +727,10 @@ void Panel::onZoomChanged()
 void Panel::onViewportChanged()
 {
     if (!s_visible || !s_hwnd)
+    {
+        dbg("onViewportChanged ignored (visible=%d hwnd=%d)", s_visible ? 1 : 0, s_hwnd ? 1 : 0);
         return;
+    }
     ::SetTimer(s_hwnd, kTimerScroll, kScrollDelayMs, nullptr);
 }
 

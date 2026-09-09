@@ -274,6 +274,7 @@ extern "C" __declspec(dllexport) void beNotified(SCNotification* notify)
         break;
 
     case SCN_MODIFIED:
+        dbg("SCN_MODIFIED type=0x%x", notify->modificationType);
         // Only the two Scintilla views matter; ignore anything a plugin panel emits.
         if (g_ready
             && (from == g_npp._scintillaMainHandle || from == g_npp._scintillaSecondHandle)
@@ -292,6 +293,10 @@ extern "C" __declspec(dllexport) void beNotified(SCNotification* notify)
         break;
 
     case SCN_UPDATEUI:
+        dbg("SCN_UPDATEUI updated=0x%x fromMain=%d ready=%d",
+            notify->updated,
+            (from == g_npp._scintillaMainHandle || from == g_npp._scintillaSecondHandle) ? 1 : 0,
+            g_ready ? 1 : 0);
         if (g_ready
             && (from == g_npp._scintillaMainHandle || from == g_npp._scintillaSecondHandle)
             && (notify->updated & (SC_UPDATE_V_SCROLL | SC_UPDATE_SELECTION)))
