@@ -204,7 +204,9 @@ void pushMode()
     j += g_cfg.syncCaret ? "caret" : "top";
     j += "\",\"baselineSource\":\"";
     j += g_cfg.baselineGit ? "git" : "saved";
-    j += "\"}";
+    j += "\",\"fit\":";
+    j += g_cfg.fitPreview ? "true" : "false";
+    j += "}";
     postJson(j);
 }
 
@@ -222,8 +224,8 @@ void pushViewport()
 
     char buf[256] = {};
     wsprintfA(buf,
-        "{\"t\":\"view\",\"first\":%d.%03d,\"caret\":%d,\"screen\":%d,\"total\":%d}",
-        whole, milli, caretLine(sci), linesOnScreen(sci), lineCount(sci));
+        "{\"t\":\"view\",\"first\":%d.%03d,\"caret\":%d,\"screen\":%d,\"total\":%d,\"disp\":%d}",
+        whole, milli, caretLine(sci), linesOnScreen(sci), lineCount(sci), displayLineCount(sci));
     dbg("pushViewport %s", buf);
     postJson(buf);
 }
@@ -546,7 +548,13 @@ LRESULT CALLBACK panelProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         {
             ::KillTimer(hwnd, kTimerDock);
             if (s_visible)
+            {
                 Dock::applyWidth(s_hwnd, g_cfg.widthPercent);
+                // The editor is now a different height, so the lines it can
+                // show has changed. Scintilla does not report that on its own,
+                // and the preview sizes itself against the figure.
+                pushViewport();
+            }
             return 0;
         }
         break;

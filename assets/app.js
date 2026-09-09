@@ -27,8 +27,8 @@
     baseline: { ok: false, text: '', source: 'saved', runs: '' },
     editor: null,
     zoom: 0,
-    mode: { diff: false, sync: 'top', baselineSource: 'saved' },
-    view: { first: 0, caret: 0, screen: 40, total: 1 },
+    mode: { diff: false, sync: 'top', baselineSource: 'saved', fit: true },
+    view: { first: 0, caret: 0, screen: 40, total: 1, disp: 0 },
     renderedKey: null
   };
 
@@ -95,6 +95,9 @@
     if (state.mode.diff) renderDiff();
     else renderPreview();
 
+    // Before the index is built, not after: the offsets it records are pixels,
+    // and the fit scale moves every one of them.
+    applyFit();
     window.MdPeekSync.build(el.content, el.scroller);
     applyViewport();
   }
@@ -122,6 +125,130 @@
       state.renderedKey = key;
       renderNow();
     });
+  }
+
+  /* ---------------------------------------------------------------- fit -- */
+
+  /* The two panes disagree about how much document a screen holds. Proportional
+   * 14px text with a blank line between blocks is taller than the same source
+   * as wrapped monospace, so pinning the top line lines up the top line and
+   * nothing else: by the foot of the panel the editor is three sections ahead.
+   *
+   * This measures both densities and scales the preview until a screenful of
+   * editor is a screenful of preview. The scale belongs to the document and the
+   * window rather than the scroll position, so it is recomputed when one of
+   * those changes and left alone in between. Scaling the column rewraps its
+   * text, which changes the height that was just measured, so the answer is
+   * iterated rather than solved.
+   */
+  var FIT_MIN = 0.55;      // a document of images would otherwise vanish
+  var FIT_MAX = 1.15;
+  var FIT_TOL = 0.004;     // stop once a pass moves the scale less than this
+  var FIT_PASSES = 6;
+  var FIT_POWER_GUESS = 1.5;  // until two passes have measured the real one
+  var FIT_FLOOR_SCREENS = 1.5;
+  var BASE_WIDTH = 900;    // #content max-width in style.css
+  var CONTENT_PAD = 48;    // its left and right padding, together
+
+  var fit = 1;
+  var fitKey = '';
+
+  function setFit(k) {
+    fit = k;
+    if (k === 1) {
+      el.content.style.zoom = '';
+      el.content.style.maxWidth = '';
+      return;
+    }
+    // zoom, not font-size: the block margins and paddings are in pixels, and a
+    // font-only scale would leave the gaps between paragraphs at full size.
+    el.content.style.zoom = k.toFixed(4);
+
+    // The column is specified in the zoomed element's own pixels, so it has to
+    // be divided by the scale to hold its width on screen. Cap it at the space
+    // the panel actually has: a dock narrower than the column would otherwise
+    // clip the text off its right edge instead of wrapping it.
+    var available = el.scroller.clientWidth - CONTENT_PAD * k;
+    var visual = Math.min(BASE_WIDTH, Math.max(160, available));
+    el.content.style.maxWidth = Math.floor(visual / k) + 'px';
+  }
+
+  function clampFit(k) {
+    if (!isFinite(k) || k <= 0) return 1;
+    return Math.min(FIT_MAX, Math.max(FIT_MIN, Math.round(k * 1000) / 1000));
+  }
+
+  // The rendered document's own height, in the scroller's pixels. Measured off
+  // the blocks rather than the element, whose padding carries a 60vh tail.
+  function renderedHeight() {
+    var first = el.content.firstElementChild;
+    var last = el.content.lastElementChild;
+    if (!first || !last) return 0;
+    return last.getBoundingClientRect().bottom - first.getBoundingClientRect().top;
+  }
+
+  function applyFit() {
+    // The diff is a source view, line for line against the editor at the
+    // editor's own font. Scaling it would undo the thing it is for.
+    if (!state.mode.fit || state.mode.diff || !state.markdown || state.tooBig) {
+      if (fit !== 1) setFit(1);
+      return;
+    }
+
+    if (!(state.view.screen > 0) || !(state.view.disp > 0)) return;
+    var screens = state.view.disp / state.view.screen;
+
+    // A document that fits on one screen has no bottom edge to disagree about,
+    // and its ratio is decided by whichever pane has the larger margins. Left
+    // at its natural size, a short note reads as a short note.
+    if (screens < FIT_FLOOR_SCREENS ||
+        renderedHeight() < FIT_FLOOR_SCREENS * el.scroller.clientHeight) {
+      if (fit !== 1) setFit(1);
+      return;
+    }
+
+    var prevFit = 0;
+    var prevHeight = 0;
+
+    for (var pass = 0; pass < FIT_PASSES; pass++) {
+      var height = renderedHeight();
+      var viewport = el.scroller.clientHeight;
+      if (height <= 0 || viewport <= 0) return;
+      var target = screens * viewport;
+
+      // How hard the height answers a change in scale. Text that only shrinks
+      // gives an exponent of 1; text that also gains words per line, and so
+      // loses rows, approaches 2. Assuming either one makes the passes
+      // overshoot and swing, so it is measured from the last two of them.
+      var power = FIT_POWER_GUESS;
+      if (prevFit > 0 && prevHeight > 0 && Math.abs(Math.log(fit / prevFit)) > 1e-4) {
+        power = Math.log(height / prevHeight) / Math.log(fit / prevFit);
+        if (!isFinite(power) || power < 0.4) power = 0.4;
+        else if (power > 3) power = 3;
+      }
+
+      var next = clampFit(fit * Math.pow(target / height, 1 / power));
+      if (Math.abs(next - fit) < FIT_TOL) break;
+
+      prevFit = fit;
+      prevHeight = height;
+      setFit(next);
+    }
+
+    if (window.MDPEEK_TRACE) {
+      send('log:fit ' + fit + ' editorScreens=' + screens.toFixed(2) +
+           ' previewScreens=' + (renderedHeight() / el.scroller.clientHeight).toFixed(2) +
+           ' panel=' + el.scroller.clientWidth + 'x' + el.scroller.clientHeight);
+    }
+  }
+
+  // Re-fit, and rebuild the index if the scale moved. Returns whether it did.
+  function refit() {
+    var before = fit;
+    applyFit();
+    if (fit === before) return false;
+    window.MdPeekSync.build(el.content, el.scroller);
+    return true;
   }
 
   /* ----------------------------------------------------------- viewport -- */
@@ -191,7 +318,8 @@
         state.mode = {
           diff: !!m.diff,
           sync: m.sync || 'top',
-          baselineSource: m.baselineSource || 'saved'
+          baselineSource: m.baselineSource || 'saved',
+          fit: m.fit !== false
         };
         scheduleRender(true);
         break;
@@ -209,6 +337,10 @@
         state.zoom = m.zoom | 0;
         window.MdPeekTheme.setZoom(state.zoom);
         // Every rendered height just changed, so the scroll index is stale.
+        // Both panes moved, so the fit between them holds; re-measure anyway,
+        // because the editor's line height and the preview's do not track the
+        // same steps.
+        applyFit();
         window.MdPeekSync.build(el.content, el.scroller);
         applyViewport();
         break;
@@ -218,8 +350,17 @@
           first: Number(m.first) || 0,
           caret: m.caret | 0,
           screen: m.screen | 0,
-          total: m.total | 0
+          total: m.total | 0,
+          disp: m.disp | 0
         };
+
+        // Wrapping changed, or the editor pane was resized, so the two
+        // densities have to be measured against each other again. Neither
+        // figure moves while the wheel is turning, so this costs nothing on
+        // the scroll path.
+        var key = state.view.screen + 'x' + state.view.disp;
+        if (key !== fitKey) { fitKey = key; refit(); }
+
         // While the user is scrolling the preview, the editor is following it.
         // Applying its position back here would fight them for the scrollbar.
         if (Date.now() < theirs) break;
@@ -291,6 +432,7 @@
   });
 
   window.addEventListener('resize', function () {
+    applyFit();
     window.MdPeekSync.build(el.content, el.scroller);
     applyViewport();
   });

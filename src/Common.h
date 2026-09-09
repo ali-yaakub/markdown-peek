@@ -48,6 +48,7 @@ struct Config
     bool baselineGit = false; // false: last saved on disk; true: git HEAD
     int  maxKiB     = 4096;   // skip auto-render above this document size
     int  widthPercent = 50;   // share of the editor area the dock takes; 0 leaves it alone
+    bool fitPreview = true;   // scale the preview so a screenful matches the editor's
     bool debugLog   = false;  // trace notifications and messages to debug.log
     std::wstring extensions = L"md;markdown;mdown;mkd;mkdn;mdwn;mdtxt;mdtext;rmd;qmd";
 
@@ -73,6 +74,12 @@ double      firstVisibleDocLineExact(HWND sci);
 int         caretLine(HWND sci);
 int         linesOnScreen(HWND sci);
 int         lineCount(HWND sci);
+
+// Display lines, not document lines: what the document costs on screen once
+// word wrap has had its way with it. Divided by linesOnScreen it gives the
+// number of screenfuls the editor needs, which is the figure the preview has
+// to match if the two panes are to end a page on the same line.
+int         displayLineCount(HWND sci);
 void        scrollDocLineToTop(HWND sci, int line);
 
 std::wstring currentFilePath();

@@ -38,6 +38,16 @@
   <output id="log">ready</output>
 </div>
 
+<script>
+  // A hidden browser tab never fires requestAnimationFrame, and the page does
+  // all its rendering inside one. Add ?raf=timer to drive it from a timer
+  // instead, so the harness still works when the pane is not on screen.
+  if (location.search.indexOf('raf=timer') >= 0) {
+    window.requestAnimationFrame = function (fn) {
+      return setTimeout(function () { fn(performance.now()); }, 0);
+    };
+  }
+</script>
 <script src="mock.js"></script>
 <script src="../assets/vendor/markdown-it.min.js"></script>
 <script src="../assets/diff.js"></script>

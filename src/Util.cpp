@@ -173,6 +173,7 @@ void Config::load()
     baselineGit = ::GetPrivateProfileIntW(L"MarkdownPeek", L"baselineGit", 0, ini.c_str()) != 0;
     maxKiB      = ::GetPrivateProfileIntW(L"MarkdownPeek", L"maxKiB",   4096, ini.c_str());
     debugLog     = ::GetPrivateProfileIntW(L"MarkdownPeek", L"debugLog",       0, ini.c_str()) != 0;
+    fitPreview   = ::GetPrivateProfileIntW(L"MarkdownPeek", L"fitPreview",     1, ini.c_str()) != 0;
     widthPercent = ::GetPrivateProfileIntW(L"MarkdownPeek", L"widthPercent", 50, ini.c_str());
     if (widthPercent < 0 || widthPercent > 95)
         widthPercent = 50;
@@ -193,6 +194,7 @@ void Config::save() const
     ::WritePrivateProfileStringW(L"MarkdownPeek", L"maxKiB",      std::to_wstring(maxKiB).c_str(), ini.c_str());
     ::WritePrivateProfileStringW(L"MarkdownPeek", L"widthPercent", std::to_wstring(widthPercent).c_str(), ini.c_str());
     ::WritePrivateProfileStringW(L"MarkdownPeek", L"debugLog",     debugLog ? L"1" : L"0", ini.c_str());
+    ::WritePrivateProfileStringW(L"MarkdownPeek", L"fitPreview",   fitPreview ? L"1" : L"0", ini.c_str());
     ::WritePrivateProfileStringW(L"MarkdownPeek", L"extensions",  extensions.c_str(), ini.c_str());
 }
 
@@ -333,6 +335,20 @@ int linesOnScreen(HWND sci)
 int lineCount(HWND sci)
 {
     return sci ? static_cast<int>(::SendMessage(sci, SCI_GETLINECOUNT, 0, 0)) : 0;
+}
+
+int displayLineCount(HWND sci)
+{
+    const int lines = lineCount(sci);
+    if (lines <= 0)
+        return 0;
+
+    // The display line of the last document line, plus the rows that line
+    // itself occupies. SCI_VISIBLEFROMDOCLINE is zero-based, so this is a count.
+    const int last = lines - 1;
+    const int visOfLast = static_cast<int>(::SendMessage(sci, SCI_VISIBLEFROMDOCLINE, static_cast<WPARAM>(last), 0));
+    const int wraps = static_cast<int>(::SendMessage(sci, SCI_WRAPCOUNT, static_cast<WPARAM>(last), 0));
+    return visOfLast + (wraps > 0 ? wraps : 1);
 }
 
 void scrollDocLineToTop(HWND sci, int line)

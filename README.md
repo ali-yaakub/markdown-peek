@@ -25,6 +25,14 @@ Built and tested against Notepad++ 8.8.7 and 8.9.7, x64, on Windows 11.
   tints are the plugin's own, and they are translucent so they sit correctly on any
   background.
 - **Zoom follows the editor.** Ctrl+scroll in Notepad++ and both panes resize together.
+- **Scaled to match the editor's density.** Proportional prose with a gap between blocks is
+  taller than the same source as wrapped monospace, so the two panes would otherwise agree
+  only on their top line. The preview measures how many screenfuls the editor needs for the
+  document, measures its own, and scales itself until the two figures match, which puts the
+  same source line at the foot of both panes. The scale is recomputed when the document,
+  the window or word wrap changes, and held still in between. It is bounded to between 55%
+  and 115%, so a document of images cannot shrink the text away. Set `fitPreview=0` to keep
+  the preview at its natural size.
 - **Half the window, and it stays half.** The panel takes 50% of the editor area and holds
   that share when the window is resized, rather than the fixed pixel width Notepad++ would
   otherwise keep. Set `widthPercent` to change the share, or to `0` to leave the width
@@ -104,7 +112,7 @@ overwritten by an upgrade, so hand edits survive.
 | `diffview.js` | The unified diff table |
 | `theme.js` | Turns Notepad++'s style table into CSS rules |
 | `sync.js` | Source line to pixel offset, and the scroll placement |
-| `app.js` | The bridge, both scroll directions, and which of the two views to show |
+| `app.js` | The bridge, both scroll directions, the fit scale, and which of the two views to show |
 
 The dock width and the toolbar icon are native rather than scripted, in `src\Dock.cpp`.
 
@@ -127,6 +135,7 @@ syncCaret=0
 baselineGit=0
 maxKiB=4096
 widthPercent=50
+fitPreview=1
 debugLog=0
 extensions=md;markdown;mdown;mkd;mkdn;mdwn;mdtxt;mdtext;rmd;qmd
 ```
@@ -165,7 +174,9 @@ node test\serve.js
 
 Then open `http://localhost:8731/test/harness.html`. The harness stands in for the
 WebView2 host, so the preview, the diff, both themes and the scroll sync can be driven in
-an ordinary browser.
+an ordinary browser. The page renders inside a `requestAnimationFrame`, which a hidden
+browser tab never fires; add `?raf=timer` to drive it from a timer instead when the tab is
+being scripted rather than watched.
 
 ## How it fits together
 

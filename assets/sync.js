@@ -34,7 +34,9 @@
       index.push({ line: line, top: top });
     }
 
-    index.push({ line: Number.MAX_SAFE_INTEGER, top: root.scrollHeight || scroller.scrollHeight });
+    // The scroller's own height, not the content element's: under a fit scale
+    // the content is zoomed, and its scrollHeight is still in unscaled pixels.
+    index.push({ line: Number.MAX_SAFE_INTEGER, top: scroller.scrollHeight });
   }
 
   // Pixel offset for a fractional source line, interpolated between neighbours.
