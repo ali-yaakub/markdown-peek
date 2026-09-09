@@ -181,6 +181,7 @@ if ($Package) {
       "folder-name": "MarkdownPeek",
       "display-name": "Markdown Peek",
       "version": "$ver",
+      "npp-compatible-versions": "[8.8,]",
       "id": "$sha",
       "repository": "<URL of this zip, attached to a GitHub release>",
       "description": "Docked Markdown preview with two-way scroll sync, and an inline unified diff of the source against the last save or git HEAD. Colours are read from the live Notepad++ style table.",
