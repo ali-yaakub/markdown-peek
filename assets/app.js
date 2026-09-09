@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright (C) 2026 Ali Yaakub */
 /* Markdown Peek - the bridge between Notepad++ and the panel.
  *
  * The native plugin posts JSON describing the document, the viewport, the theme

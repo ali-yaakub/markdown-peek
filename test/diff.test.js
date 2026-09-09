@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright (C) 2026 Ali Yaakub */
 /* Tests for the diff engine. Run with: node test\diff.test.js */
 'use strict';
 

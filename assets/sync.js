@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright (C) 2026 Ali Yaakub */
 /* Markdown Peek - placing the preview against the editor's viewport.
  *
  * Proportional scrolling drifts the moment a document contains a code block, a

@@ -16,9 +16,14 @@ Notepad++ and Scintilla headers under `include/`, so there is nothing to restore
 ## The loop
 
 ```powershell
-.\build.ps1                 # compile and stage into dist\
+.\build.ps1                 # compile and stage into dist\x64\
 node test\diff.test.js      # 58 assertions over the diff engine
 ```
+
+The version lives in one place, `src/Version.h`, and reaches the DLL through
+`src/Version.rc`. Plugins Admin identifies a build by that resource and refuses a DLL
+without one, so a change to the version goes there and nowhere else. CI checks the two
+agree.
 
 Most changes do not need a rebuild. The DLL is a shell: it owns the window, the WebView
 and a small message bridge, and everything that decides what the panel looks like is
@@ -63,6 +68,44 @@ scroll index and every pass of the fit scale.
   as characters. Keep it that way.
 - No new runtime dependencies. markdown-it is vendored and pinned; the plugin has no
   package manifest and no network access at all.
+
+## Releasing, and the Plugins Admin list
+
+Notepad++'s built-in Plugins Admin reads three independent lists — `pl.x86.json`,
+`pl.x64.json`, `pl.arm64.json` — in the [nppPluginList][npl] repository. A plugin may
+appear in one, two or all three; plenty appear in only one.
+
+[npl]: https://github.com/notepad-plus-plus/nppPluginList
+
+Their CI downloads every archive in the list and checks it, so a submission has to survive
+[`validator.py`][val] exactly:
+
+[val]: https://github.com/notepad-plus-plus/nppPluginList/blob/master/validator.py
+
+1. `repository` is the URL of the `.zip` itself and must return 200. A GitHub release
+   asset is the usual home.
+2. `id` is the SHA-256 of those bytes.
+3. The archive must contain `MarkdownPeek.dll` **at its root**. The check compares whole
+   entry names, so a wrapping folder fails it. Anything else may sit in a subfolder, which
+   is where `assets\` goes. `doc\` is the one reserved name — it is extracted to
+   `plugins\doc\MarkdownPeek\` rather than beside the DLL.
+4. The DLL must carry a version resource, and `version` in the JSON must equal its
+   `FileVersion` once zero-padded to four parts.
+5. `folder-name`, `display-name` and `repository` must each be unique across the list.
+
+`build.ps1 -Package` handles 2, 3 and 4 and prints the entry ready to paste. To cut a
+release:
+
+```powershell
+# 1. bump src\Version.h, and add the section to CHANGELOG.md
+.\build.ps1 -Clean -Package
+gh release create v0.1.0 dist\MarkdownPeek-0.1.0.0-x64.zip --notes-from-tag
+# 2. paste the printed entry into pl.x64.json, with the release asset URL
+# 3. open the PR against nppPluginList, touching only the JSON
+```
+
+The repository has to be public before submitting: the validator downloads the asset
+anonymously.
 
 ## Licence
 

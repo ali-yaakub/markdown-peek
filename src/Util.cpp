@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Ali Yaakub
 // Markdown Peek - paths, strings, config, editor access, diff baselines.
 #include "Common.h"
 #include "Scintilla.h"

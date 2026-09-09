@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Ali Yaakub
 // Markdown Peek - docked panel width, and the toolbar icon.
 //
 // Notepad++ gives plugins no supported way to set the width of their own docked

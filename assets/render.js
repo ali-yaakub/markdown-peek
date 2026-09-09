@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright (C) 2026 Ali Yaakub */
 /* Markdown Peek - Markdown to HTML, with the source line carried through.
  *
  * Every block element leaves the renderer carrying data-line and data-endline.

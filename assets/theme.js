@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright (C) 2026 Ali Yaakub */
 /* Markdown Peek - applying Notepad++'s live styling to the diff view.
  *
  * The plugin sends whatever is in the editor's Scintilla style table. Nothing is

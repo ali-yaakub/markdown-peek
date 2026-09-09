@@ -8,6 +8,20 @@ Notable changes, newest first. The format follows [Keep a Changelog][kac]; versi
 
 ## [Unreleased]
 
+### Added
+
+- A `VERSIONINFO` resource, so `GetFileVersionInfo` reports a version. Plugins Admin and
+  the plugin-list validator both identify a build this way and reject a DLL without one.
+  `src/Version.h` is the single place the number is written down.
+- `build.ps1 -Arch x86|arm64`, and `-Package`, which produces the archive Plugins Admin
+  expects and prints its SHA-256 with the rest of a plugin-list entry.
+- SPDX headers on the project's own sources.
+
+### Changed
+
+- Builds now stage into `dist\<arch>\MarkdownPeek` rather than `dist\MarkdownPeek`, so the
+  architectures can coexist.
+
 ## [0.1.0] — 2026-09-09
 
 First working version.

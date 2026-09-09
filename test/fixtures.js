@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright (C) 2026 Ali Yaakub */
 /* Drives the harness with a document that exercises every rendering path. */
 (function () {
   'use strict';

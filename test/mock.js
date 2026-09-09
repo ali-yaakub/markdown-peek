@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright (C) 2026 Ali Yaakub */
 /* Stands in for the WebView2 host so the preview can be driven in a browser. */
 (function () {
   'use strict';

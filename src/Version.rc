@@ -1,0 +1,38 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Ali Yaakub
+//
+// The only resource the plugin carries. The toolbar icon is drawn with GDI at
+// startup instead, so this exists purely to satisfy GetFileVersionInfo, which
+// is how Plugins Admin and the plugin-list validator identify a build.
+
+#include <winver.h>
+#include "Version.h"
+
+VS_VERSION_INFO VERSIONINFO
+    FILEVERSION    MDPEEK_VER_MAJOR, MDPEEK_VER_MINOR, MDPEEK_VER_PATCH, MDPEEK_VER_BUILD
+    PRODUCTVERSION MDPEEK_VER_MAJOR, MDPEEK_VER_MINOR, MDPEEK_VER_PATCH, MDPEEK_VER_BUILD
+    FILEFLAGSMASK  VS_FFI_FILEFLAGSMASK
+    FILEFLAGS      0x0L
+    FILEOS         VOS_NT_WINDOWS32
+    FILETYPE       VFT_DLL
+    FILESUBTYPE    VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"                        // US English, Unicode
+        BEGIN
+            VALUE "CompanyName",      "Ali Yaakub"
+            VALUE "FileDescription",  "Markdown preview and inline diff panel for Notepad++"
+            VALUE "FileVersion",      MDPEEK_VER_STRING
+            VALUE "InternalName",     "MarkdownPeek"
+            VALUE "LegalCopyright",   "Copyright (C) 2026 Ali Yaakub. GPL-3.0-or-later."
+            VALUE "OriginalFilename", "MarkdownPeek.dll"
+            VALUE "ProductName",      "Markdown Peek"
+            VALUE "ProductVersion",   MDPEEK_VER_STRING
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END

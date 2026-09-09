@@ -27,24 +27,40 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build
+      - name: Build and package
         shell: pwsh
-        run: .\build.ps1
+        run: .\build.ps1 -Arch x64 -Package
 
-      - name: Check the staged output
+      - name: Check the package the way Plugins Admin will
         shell: pwsh
         run: |
-          $dll = 'dist\MarkdownPeek\MarkdownPeek.dll'
+          $dll = 'dist\x64\MarkdownPeek\MarkdownPeek.dll'
           if (-not (Test-Path $dll)) { throw "$dll was not produced" }
-          $size = [math]::Round((Get-Item $dll).Length / 1KB)
-          Write-Host "MarkdownPeek.dll  ${size} KiB"
 
-          # The folder name has to match the DLL name or Notepad++ skips it,
-          # and the assets have to carry the stamp the plugin refreshes against.
-          if (-not (Test-Path 'dist\MarkdownPeek\assets\VERSION')) { throw 'assets\VERSION is missing' }
+          # A DLL with no version resource is rejected outright by the
+          # plugin-list validator, and the version has to match Version.h.
+          $ver = (Get-Item $dll).VersionInfo.FileVersion
+          if (-not $ver) { throw 'The DLL carries no FileVersion resource.' }
+          $expected = (Select-String -Path src\Version.h -Pattern 'MDPEEK_VER_STRING\s+"([^"]+)"').Matches[0].Groups[1].Value
+          if ($ver -ne $expected) { throw "FileVersion is $ver but Version.h says $expected." }
+
+          # The assets have to carry the stamp the plugin refreshes against.
+          if (-not (Test-Path 'dist\x64\MarkdownPeek\assets\VERSION')) { throw 'assets\VERSION is missing' }
+
+          # The DLL must sit at the root of the archive or Plugins Admin will
+          # not find it.
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $zipPath = (Get-ChildItem 'dist\MarkdownPeek-*-x64.zip' | Select-Object -First 1).FullName
+          $zip = [IO.Compression.ZipFile]::OpenRead($zipPath)
+          $atRoot = @($zip.Entries | Where-Object { $_.FullName.ToLower() -eq 'markdownpeek.dll' }).Count -eq 1
+          $zip.Dispose()
+          if (-not $atRoot) { throw 'MarkdownPeek.dll is not at the root of the zip.' }
+
+          $size = [math]::Round((Get-Item $dll).Length / 1KB)
+          Write-Host "MarkdownPeek.dll  ${size} KiB  version $ver"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MarkdownPeek
-          path: dist/MarkdownPeek
+          name: MarkdownPeek-x64
+          path: dist/x64/MarkdownPeek
           if-no-files-found: error

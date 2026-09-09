@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Ali Yaakub
 // Markdown Peek - reading Notepad++'s live styling.
 //
 // Nothing here is a hard-coded colour. The palette is whatever the user's active

@@ -88,12 +88,23 @@ Then, from an elevated PowerShell in the same folder:
 Restart Notepad++. The plugin appears under **Plugins > Markdown Peek**, and on the
 toolbar.
 
-To install by hand instead, copy `dist\MarkdownPeek` to
+To install by hand instead, copy `dist\x64\MarkdownPeek` to
 `C:\Program Files\Notepad++\plugins\MarkdownPeek`. The folder name has to match the DLL
 name or Notepad++ will not load it.
 
-**Requirements.** Notepad++ 8.8 or later, x64. Windows 10 or 11 with the WebView2 runtime,
+**Requirements.** Notepad++ 8.8 or later. Windows 10 or 11 with the WebView2 runtime,
 which ships with Windows 11 and with any recent Edge on Windows 10.
+
+### Architectures
+
+x64 is built and tested. The build script takes `-Arch x86` and `-Arch arm64`, and the
+code is architecture-neutral, but neither is shipped yet: each needs its own
+`WebView2LoaderStatic.lib` from the WebView2 SDK, and arm64 additionally needs the MSVC
+ARM64 cross toolset. Neither is tested on real hardware, so neither is claimed.
+
+The three lists Plugins Admin reads are independent — 27 of the 196 plugins in the x64
+list are absent from the x86 one — so x64 alone is a complete submission rather than a
+partial one.
 
 ## Opening `.md` files straight into the preview
 
@@ -170,13 +181,19 @@ Needs the MSVC C++ toolset and the Windows SDK; Visual Studio Build Tools is eno
 build script finds the toolchain with `vswhere`.
 
 ```powershell
-.\build.ps1            # compile and stage into dist\
-.\build.ps1 -Clean     # discard objects first
-.\build.ps1 -Install   # also copy into the plugins folder (needs elevation)
+.\build.ps1                 # compile and stage into dist\x64\
+.\build.ps1 -Arch x86       # or arm64; each gets its own dist folder
+.\build.ps1 -Clean          # discard objects first
+.\build.ps1 -Install        # also copy into the plugins folder (needs elevation)
+.\build.ps1 -Package        # also make the release zip and print its SHA-256
 ```
 
 Output is a single ~230 KiB DLL. The CRT and the WebView2 loader are linked statically, so
 the only dependencies are system libraries and the WebView2 runtime.
+
+`-Package` produces the archive Plugins Admin expects — the DLL at the root of the zip,
+the assets beside it — and prints the SHA-256, which is the `id` field of a plugin-list
+entry, along with the rest of the entry ready to paste.
 
 ```powershell
 node test\diff.test.js

@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright (C) 2026 Ali Yaakub */
 // Static file server for the harness. Mirrors how the plugin serves assets
 // over a virtual host, so relative paths and the CSP behave the same way.
 const http = require('http');
