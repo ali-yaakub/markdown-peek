@@ -42,9 +42,9 @@ Built and tested against Notepad++ 8.8.7 and 8.9.7, x64, on Windows 11.
   the auto-open rule. The record lasts for the session and is dropped when a file closes.
 - **Opens itself for Markdown.** Activating a `.md` buffer opens the panel.
 
-The preview is styled separately, after Claude Code: warm ground, coral accent, a reading
-measure. It is a reading surface rather than a second editor, so it does not try to look
-like one.
+The preview is styled separately, after Claude Code: warm ground, coral accent, and the
+full width of the panel. It is a reading surface rather than a second editor, so it does
+not try to look like one.
 
 ## Install
 

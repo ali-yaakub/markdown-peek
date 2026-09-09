@@ -7,10 +7,10 @@
 
 /* Two palettes live here and they are deliberately different.
    The preview is the reading surface, styled after Claude Code: warm ground,
-   coral accent, generous measure. The diff is the editor's own surface, and
-   every colour it uses arrives at runtime from Notepad++'s Scintilla style
-   table via theme.js, under the --ed-* names. Nothing about the diff's
-   colouring is written down in this file.
+   coral accent, the full width of the panel. The diff is the editor's own
+   surface, and every colour it uses arrives at runtime from Notepad++'s
+   Scintilla style table via theme.js, under the --ed-* names. Nothing about
+   the diff's colouring is written down in this file.
 
    color-scheme is declared so Chromium does not darken the page itself. */
 :root {
@@ -112,9 +112,10 @@ body.diff #content { background: var(--ed-bg, var(--c-bg)); }
   scroll-behavior: auto;
 }
 
+/* No reading measure. A docked panel is already as narrow as the user chose to
+   make it, and a column centred inside that spends the width twice. */
 #content {
-  max-width: 900px;
-  margin: 0 auto;
+  margin: 0;
   padding: 16px 24px 60vh;
   word-wrap: break-word;
 }
@@ -228,13 +229,11 @@ body.diff #content { background: var(--ed-bg, var(--c-bg)); }
 
 /* ------------------------------------------------------- unified diff -- */
 
-/* The diff is a source view, so it takes the whole width of the panel rather
-   than the reading measure the preview uses. Its font, ground and every syntax
-   colour come from --ed-* variables that theme.js writes from Notepad++'s live
-   style table. The fallbacks below only apply before the first theme message. */
+/* The diff is a source view, so it drops the preview's padding and runs to the
+   edges. Its font, ground and every syntax colour come from --ed-* variables
+   that theme.js writes from Notepad++'s live style table. The fallbacks below
+   only apply before the first theme message. */
 body.diff #content {
-  max-width: none;
-  margin: 0;
   padding: 0 0 60vh;
 }
 

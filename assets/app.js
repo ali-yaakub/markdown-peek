@@ -143,12 +143,11 @@
    */
   var FIT_MIN = 0.55;      // a document of images would otherwise vanish
   var FIT_MAX = 1.15;
-  var FIT_TOL = 0.004;     // stop once a pass moves the scale less than this
-  var FIT_PASSES = 6;
+  var FIT_TOL = 0.004;       // a pass that moves the scale less than this is done
+  var FIT_RATIO_TOL = 0.01;  // and so are two panes within 1% of each other
+  var FIT_PASSES = 8;
   var FIT_POWER_GUESS = 1.5;  // until two passes have measured the real one
   var FIT_FLOOR_SCREENS = 1.5;
-  var BASE_WIDTH = 900;    // #content max-width in style.css
-  var CONTENT_PAD = 48;    // its left and right padding, together
 
   var fit = 1;
   var fitKey = '';
@@ -157,20 +156,13 @@
     fit = k;
     if (k === 1) {
       el.content.style.zoom = '';
-      el.content.style.maxWidth = '';
       return;
     }
     // zoom, not font-size: the block margins and paddings are in pixels, and a
     // font-only scale would leave the gaps between paragraphs at full size.
+    // The column carries no width of its own, so it fills the panel whatever
+    // the scale is; only the text inside it gets smaller.
     el.content.style.zoom = k.toFixed(4);
-
-    // The column is specified in the zoomed element's own pixels, so it has to
-    // be divided by the scale to hold its width on screen. Cap it at the space
-    // the panel actually has: a dock narrower than the column would otherwise
-    // clip the text off its right edge instead of wrapping it.
-    var available = el.scroller.clientWidth - CONTENT_PAD * k;
-    var visual = Math.min(BASE_WIDTH, Math.max(160, available));
-    el.content.style.maxWidth = Math.floor(visual / k) + 'px';
   }
 
   function clampFit(k) {
@@ -207,14 +199,34 @@
       return;
     }
 
+    // The answer is somewhere in here, and every measurement narrows it: the
+    // preview's height only rises with the scale, so a pane that is too tall
+    // puts a ceiling on the answer and one that is too short puts a floor
+    // under it. The step below is fast but can be wrong; the bracket is slow
+    // but cannot be, so a step that leaves the bracket is replaced by a
+    // bisection of it. Together they converge on any content.
+    var lo = FIT_MIN;
+    var hi = FIT_MAX;
     var prevFit = 0;
     var prevHeight = 0;
+    var trail = window.MDPEEK_TRACE ? [] : null;
 
     for (var pass = 0; pass < FIT_PASSES; pass++) {
       var height = renderedHeight();
       var viewport = el.scroller.clientHeight;
       if (height <= 0 || viewport <= 0) return;
-      var target = screens * viewport;
+
+      var ratio = (screens * viewport) / height;
+      if (Math.abs(1 - ratio) < FIT_RATIO_TOL) break;   // the panes agree
+
+      if (ratio < 1) hi = Math.min(hi, fit);
+      else lo = Math.max(lo, fit);
+
+      // Height is a step function, not a curve: every paragraph loses a line at
+      // its own scale, and a document of repeated text loses all of them at
+      // once. When the bracket has closed on such a step there is no scale that
+      // hits the target, and the closer of the two sides is the answer.
+      if (hi - lo < FIT_TOL * 2) break;
 
       // How hard the height answers a change in scale. Text that only shrinks
       // gives an exponent of 1; text that also gains words per line, and so
@@ -227,8 +239,14 @@
         else if (power > 3) power = 3;
       }
 
-      var next = clampFit(fit * Math.pow(target / height, 1 / power));
-      if (Math.abs(next - fit) < FIT_TOL) break;
+      var step = fit * Math.pow(ratio, 1 / power);
+      var next = clampFit(step > lo && step < hi ? step : (lo + hi) / 2);
+      if (trail) {
+        trail.push(fit.toFixed(3) + '>' + next.toFixed(3) +
+                   ' r=' + ratio.toFixed(3) + ' p=' + power.toFixed(2) +
+                   ' [' + lo.toFixed(2) + ',' + hi.toFixed(2) + ']');
+      }
+      if (Math.abs(next - fit) < FIT_TOL) break;       // pinned by a bound
 
       prevFit = fit;
       prevHeight = height;
@@ -238,7 +256,8 @@
     if (window.MDPEEK_TRACE) {
       send('log:fit ' + fit + ' editorScreens=' + screens.toFixed(2) +
            ' previewScreens=' + (renderedHeight() / el.scroller.clientHeight).toFixed(2) +
-           ' panel=' + el.scroller.clientWidth + 'x' + el.scroller.clientHeight);
+           ' panel=' + el.scroller.clientWidth + 'x' + el.scroller.clientHeight +
+           (trail && trail.length ? ' | ' + trail.join(' | ') : ''));
     }
   }
 
