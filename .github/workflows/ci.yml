@@ -14,8 +14,8 @@ jobs:
     name: Diff engine
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '20'
       - name: Run the diff tests
@@ -25,7 +25,7 @@ jobs:
     name: Plugin (x64)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build and package
         shell: pwsh
@@ -59,7 +59,7 @@ jobs:
           $size = [math]::Round((Get-Item $dll).Length / 1KB)
           Write-Host "MarkdownPeek.dll  ${size} KiB  version $ver"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: MarkdownPeek-x64
           path: dist/x64/MarkdownPeek
