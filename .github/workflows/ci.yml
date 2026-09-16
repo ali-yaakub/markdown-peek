@@ -11,15 +11,24 @@ permissions:
 
 jobs:
   test:
-    name: Diff engine
+    # Two legs rather than one. "latest" is the point of the exercise; the LTS
+    # leg is there so that when latest goes red the answer to "is it Node or is
+    # it us" is already on the screen, rather than something to go and find out.
+    name: Diff engine (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['lts/*', 'latest']
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: ${{ matrix.node }}
       - name: Run the diff tests
-        run: node test/diff.test.js
+        run: |
+          node --version
+          node test/diff.test.js
 
   build:
     name: Plugin (x64)
